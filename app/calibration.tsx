@@ -17,9 +17,6 @@ const device = useCameraDevice("front");
 //     (f) => f.videoWidth / f.videoHeight === 4 / 3
 //   ) ?? device?.formats[0];
 
-if (!hasPermission) {
-  return null;
-}
   if (!hasPermission) {
   return (
     <SafeAreaView style={styles.container}>
