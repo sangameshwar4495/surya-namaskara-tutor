@@ -1,174 +1,55 @@
-import {
-  Camera,
-  useCameraDevice,
-} from "react-native-vision-camera";
+import { StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import {
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
-
-import {
-  SafeAreaView,
-} from "react-native-safe-area-context";
-
-import CameraOverlay from "../src/components/CameraOverlay";
-import DetectionStatus from "../src/components/DetectionStatus";
-import PoseCanvas from "../src/components/PoseCanvas";
-
-import {
-  usePoseDetection,
-} from "../src/hooks/usePoseDetection";
-
-export default function CameraScreen() {
-  const device =
-    useCameraDevice("front");
-
-  const {
-    poseResult,
-    frameProcessor,
-    cameraViewLayoutChangeHandler,
-  } = usePoseDetection();
-
-  if (!device) {
-    return (
-      <SafeAreaView
-        style={styles.center}
-      >
-        <Text style={styles.title}>
-          Loading Camera...
-        </Text>
-      </SafeAreaView>
-    );
-  }
-
-  /*
-   * IMPORTANT:
-   * Show the skeleton whenever MediaPipe has
-   * provided a pose, even when the whole body
-   * is not currently in frame.
-   *
-   * This makes the overlay useful for the user
-   * while positioning themselves.
-   */
-  const hasPose =
-    poseResult.landmarks.length >= 33;
-
-  const personDetected =
-    poseResult.inFrame;
-
+export default function CameraWebScreen() {
   return (
-    <SafeAreaView
-      style={styles.container}
-    >
-      <View
-        style={styles.cameraContainer}
-      >
-        <Camera
-          style={
-            StyleSheet.absoluteFillObject
-          }
-          device={device}
-          isActive={true}
-          pixelFormat="rgb"
-          resizeMode="contain"
-          frameProcessor={
-            frameProcessor
-          }
-          onLayout={
-            cameraViewLayoutChangeHandler
-          }
-        />
+    <SafeAreaView style={styles.container}>
+      <View style={styles.content}>
+        <Text style={styles.icon}>📱</Text>
 
-        <CameraOverlay />
-
-        {hasPose && (
-          <PoseCanvas
-            landmarks={
-              poseResult.landmarks
-            }
-          />
-        )}
-
-        <DetectionStatus
-          status={
-            personDetected
-              ? "Person detected"
-              : poseResult.message
-          }
-          ready={personDetected}
-        />
-      </View>
-
-      <TouchableOpacity
-        style={[
-          styles.button,
-          {
-            opacity:
-              personDetected
-                ? 1
-                : 0.5,
-          },
-        ]}
-        disabled={!personDetected}
-      >
-        <Text
-          style={styles.buttonText}
-        >
-          Start Yoga
+        <Text style={styles.title}>
+          Camera preview unavailable
         </Text>
-      </TouchableOpacity>
+
+        <Text style={styles.subtitle}>
+          Pose detection uses the native Android camera.
+          Run the app on your Android device to use this feature.
+        </Text>
+      </View>
     </SafeAreaView>
   );
 }
 
-const styles =
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor:
-        "#FAFBF8",
-      padding: 16,
-    },
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#F7F5EE",
+  },
 
-    cameraContainer: {
-      flex: 1,
-      borderRadius: 24,
-      overflow: "hidden",
-      backgroundColor: "#000",
-      position: "relative",
-    },
+  content: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 30,
+  },
 
-    center: {
-      flex: 1,
-      justifyContent:
-        "center",
-      alignItems: "center",
-      padding: 24,
-      backgroundColor:
-        "#FAFBF8",
-    },
+  icon: {
+    fontSize: 52,
+    marginBottom: 24,
+  },
 
-    title: {
-      fontSize: 24,
-      fontWeight: "700",
-      marginBottom: 20,
-    },
+  title: {
+    fontSize: 26,
+    fontWeight: "800",
+    color: "#172923",
+    textAlign: "center",
+    marginBottom: 12,
+  },
 
-    button: {
-      backgroundColor:
-        "rgb(91,123,97)",
-      marginTop: 16,
-      paddingVertical: 16,
-      borderRadius: 16,
-      alignItems: "center",
-    },
-
-    buttonText: {
-      color: "#FFF",
-      fontSize: 17,
-      fontWeight: "600",
-    },
-  });
+  subtitle: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: "#68756F",
+    textAlign: "center",
+  },
+});

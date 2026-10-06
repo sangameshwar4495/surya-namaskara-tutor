@@ -25,7 +25,7 @@ export default function WelcomeScreen() {
 
         <TouchableOpacity
           style={styles.button}
-          onPress={() => router.push("/calibration")}
+          onPress={() => router.push("/practice-mode")}
         >
           <Text style={styles.buttonText}>Start Session</Text>
         </TouchableOpacity>
