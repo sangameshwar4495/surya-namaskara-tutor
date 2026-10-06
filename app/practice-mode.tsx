@@ -31,7 +31,7 @@ export default function PracticeModeScreen() {
           title="View full sequence demo"
           description="Watch all 12 poses flow together before you begin."
           onPress={() => {
-            router.push("/demo  ");
+            router.push("/demo");
           } }
         />
 
