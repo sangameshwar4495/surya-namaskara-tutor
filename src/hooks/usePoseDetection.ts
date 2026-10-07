@@ -318,7 +318,7 @@ export function usePoseDetection() {
       try {
         const mediaPipeLandmarks =
           poseResult?.results?.[0]
-            ?.landmarks?.[0];
+            ?.wordLandmarks?.[0];
 
         if (
           !Array.isArray(
