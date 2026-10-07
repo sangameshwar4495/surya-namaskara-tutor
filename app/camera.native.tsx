@@ -1,3 +1,4 @@
+import React from "react";
 import {
   Camera,
   useCameraDevice,
@@ -61,6 +62,8 @@ export default function CameraScreen() {
   const personDetected =
     poseResult.inFrame;
 
+  const angles = poseResult.angles;
+
   return (
     <SafeAreaView
       style={styles.container}
@@ -103,6 +106,110 @@ export default function CameraScreen() {
           ready={personDetected}
         />
       </View>
+      
+          {/* Temporary angle display */}
+      <View style={styles.anglePanel}>
+        <Text style={styles.panelTitle}>
+          Joint Angles
+        </Text>
+
+        <View style={styles.row}>
+          <Text style={styles.angleText}>
+            Left Knee
+          </Text>
+
+          <Text style={styles.angleValue}>
+            {formatAngle(
+              angles.leftKnee
+            )}
+          </Text>
+        </View>
+
+        <View style={styles.row}>
+          <Text style={styles.angleText}>
+            Right Knee
+          </Text>
+
+          <Text style={styles.angleValue}>
+            {formatAngle(
+              angles.rightKnee
+            )}
+          </Text>
+        </View>
+
+        <View style={styles.row}>
+          <Text style={styles.angleText}>
+            Left Elbow
+          </Text>
+
+          <Text style={styles.angleValue}>
+            {formatAngle(
+              angles.leftElbow
+            )}
+          </Text>
+        </View>
+
+        <View style={styles.row}>
+          <Text style={styles.angleText}>
+            Right Elbow
+          </Text>
+
+          <Text style={styles.angleValue}>
+            {formatAngle(
+              angles.rightElbow
+            )}
+          </Text>
+        </View>
+
+        <View style={styles.row}>
+          <Text style={styles.angleText}>
+            Left Shoulder
+          </Text>
+
+          <Text style={styles.angleValue}>
+            {formatAngle(
+              angles.leftShoulder
+            )}
+          </Text>
+        </View>
+
+        <View style={styles.row}>
+          <Text style={styles.angleText}>
+            Right Shoulder
+          </Text>
+
+          <Text style={styles.angleValue}>
+            {formatAngle(
+              angles.rightShoulder
+            )}
+          </Text>
+        </View>
+
+        <View style={styles.row}>
+          <Text style={styles.angleText}>
+            Left Hip
+          </Text>
+
+          <Text style={styles.angleValue}>
+            {formatAngle(
+              angles.leftHip
+            )}
+          </Text>
+        </View>
+
+        <View style={styles.row}>
+          <Text style={styles.angleText}>
+            Right Hip
+          </Text>
+
+          <Text style={styles.angleValue}>
+            {formatAngle(
+              angles.rightHip
+            )}
+          </Text>
+        </View>
+      </View>
+    
 
       <TouchableOpacity
         style={[
@@ -126,6 +233,17 @@ export default function CameraScreen() {
     </SafeAreaView>
   );
 }
+
+function formatAngle(
+  angle: number | null
+): string {
+  if (angle === null) {
+    return "--";
+  }
+
+  return `${Math.round(angle)}°`;
+}
+
 
 const styles =
   StyleSheet.create({
@@ -174,4 +292,46 @@ const styles =
       fontSize: 17,
       fontWeight: "600",
     },
+
+    anglePanel: {
+    position: "absolute",
+    right: 12,
+    bottom: 30,
+
+    width: 180,
+
+    padding: 12,
+
+    borderRadius: 12,
+
+    backgroundColor:
+      "rgba(0, 0, 0, 0.70)",
+  },
+
+  angleText: {
+    color: "#ddd",
+    fontSize: 12,
+  },
+
+  angleValue: {
+    color: "#45E66B",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  row: {
+    flexDirection: "row",
+    justifyContent:
+      "space-between",
+    alignItems: "center",
+
+    marginVertical: 2,
+  },
+
+  panelTitle: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+
   });

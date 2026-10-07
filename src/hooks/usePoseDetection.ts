@@ -6,7 +6,13 @@ import {
 
 import { useCallback, useState } from "react";
 import { Platform } from "react-native";
-import { Landmark, PoseDetectionResult } from "../types/pose";
+
+import {
+  Landmark,
+  PoseDetectionResult,
+} from "../types/pose";
+
+import { calculatePoseAngles } from "../services/poseAngles";
 
 const FULL_BODY_POINTS = [
   0,  // nose
@@ -48,21 +54,24 @@ function transformLandmark(
   );
 
   /*
-   * Android front-camera frames are arriving from the
-   * camera sensor in landscape coordinates (640x480),
+   * Android front-camera frames are arriving from
+   * the camera sensor in landscape coordinates,
    * while our UI is portrait.
    *
    * Rotate the normalized coordinates once:
    *
-   * portrait X = raw Y
+   * portrait X = 1 - raw Y
    * portrait Y = 1 - raw X
+   *
+   * This transformation is only for display/UI.
+   * Angle calculations use the original raw
+   * MediaPipe landmarks.
    */
   if (Platform.OS === "android") {
     return {
-      x: 1-y,
+      x: 1 - y,
       y: 1 - x,
       z,
-      // Require BOTH visibility and presence to be reasonable.
       visibility: Math.min(
         visibility,
         presence
@@ -90,25 +99,23 @@ function checkFullBody(
 
   const usable = points.filter(
     (point) =>
-      point && isUsableLandmark(point)
+      point &&
+      isUsableLandmark(point)
   );
 
-  /*
-   * Head-only / upper-body-only detection must NOT
-   * count as a person ready for yoga.
-   *
-   * We require:
-   * - nose
-   * - both shoulders
-   * - both hips
-   * - at least one knee
-   * - at least one ankle
-   */
   const nose = landmarks[0];
-  const leftShoulder = landmarks[11];
-  const rightShoulder = landmarks[12];
-  const leftHip = landmarks[23];
-  const rightHip = landmarks[24];
+
+  const leftShoulder =
+    landmarks[11];
+
+  const rightShoulder =
+    landmarks[12];
+
+  const leftHip =
+    landmarks[23];
+
+  const rightHip =
+    landmarks[24];
 
   const mandatoryUpperBody =
     !!nose &&
@@ -123,12 +130,20 @@ function checkFullBody(
     isUsableLandmark(rightHip);
 
   const kneeVisible =
-    isUsableLandmark(landmarks[25]) ||
-    isUsableLandmark(landmarks[26]);
+    isUsableLandmark(
+      landmarks[25]
+    ) ||
+    isUsableLandmark(
+      landmarks[26]
+    );
 
   const ankleVisible =
-    isUsableLandmark(landmarks[27]) ||
-    isUsableLandmark(landmarks[28]);
+    isUsableLandmark(
+      landmarks[27]
+    ) ||
+    isUsableLandmark(
+      landmarks[28]
+    );
 
   if (
     !mandatoryUpperBody ||
@@ -139,11 +154,6 @@ function checkFullBody(
     return false;
   }
 
-  /*
-   * Also make sure the detected body occupies a meaningful
-   * vertical portion of the camera. This prevents tiny/random
-   * detections from enabling the button.
-   */
   const ys = usable.map(
     (point) => point.y
   );
@@ -159,47 +169,236 @@ export function usePoseDetection() {
   const [result, setResult] =
     useState<PoseDetectionResult>({
       landmarks: [],
+      angles: {
+        leftKnee: null,
+        rightKnee: null,
+
+        leftElbow: null,
+        rightElbow: null,
+
+        leftShoulder: null,
+        rightShoulder: null,
+
+        leftHip: null,
+        rightHip: null,
+      },
       inFrame: false,
       message:
         "Searching for person...",
     });
 
-  const handleResults = useCallback(
+  // const handleResults =
+  //   useCallback(
+  //     (poseResult: any) => {
+  //       try {
+  //         const rawLandmarks =
+  //           poseResult?.results?.[0]
+  //             ?.landmarks?.[0];
+
+  //         if (
+  //           !Array.isArray(
+  //             rawLandmarks
+  //           ) ||
+  //           rawLandmarks.length < 33
+  //         ) {
+  //           setResult({
+  //             landmarks: [],
+  //             angles: {
+  //               leftKnee: null,
+  //               rightKnee: null,
+
+  //               leftElbow: null,
+  //               rightElbow: null,
+
+  //               leftShoulder: null,
+  //               rightShoulder: null,
+
+  //               leftHip: null,
+  //               rightHip: null,
+  //             },
+  //             inFrame: false,
+  //             message:
+  //               "No person detected",
+  //           });
+
+  //           return;
+  //         }
+
+  //         /*
+  //          * Keep the original MediaPipe landmarks
+  //          * for anatomical calculations.
+  //          *
+  //          * We do NOT apply the Android coordinate
+  //          * transformation here.
+  //          */
+  //         const rawLandmarks: Landmark[] =
+  //           rawLandmarks.map(
+  //             (point: any) => ({
+  //               x: Number(point?.x) || 0,
+  //               y: Number(point?.y) || 0,
+  //               z: Number(point?.z) || 0,
+  //               visibility: Math.min(
+  //                 Number(
+  //                   point?.visibility ?? 0
+  //                 ),
+  //                 Number(
+  //                   point?.presence ??
+  //                     point?.visibility ??
+  //                     0
+  //                 )
+  //               ),
+  //             })
+  //           );
+
+  //         /*
+  //          * Calculate joint angles from the
+  //          * original MediaPipe coordinates.
+  //          */
+  //         const angles =
+  //           calculatePoseAngles(
+  //             rawLandmarks
+  //           );
+
+  //         /*
+  //          * Transform a separate copy for
+  //          * visualization and full-body detection.
+  //          */
+  //         const landmarks: Landmark[] =
+  //           rawLandmarks.map(
+  //             (point) =>
+  //               transformLandmark(point)
+  //           );
+
+  //         const fullBody =
+  //           checkFullBody(
+  //             landmarks
+  //           );
+
+  //         setResult({
+  //           landmarks,
+  //           angles,
+  //           inFrame: fullBody,
+  //           message: fullBody
+  //             ? "Person detected"
+  //             : "Show your whole body",
+  //         });
+  //       } catch (error) {
+  //         console.error(
+  //           "Pose result processing error:",
+  //           error
+  //         );
+
+  //         setResult({
+  //           landmarks: [],
+  //           angles: {
+  //             leftKnee: null,
+  //             rightKnee: null,
+
+  //             leftElbow: null,
+  //             rightElbow: null,
+
+  //             leftShoulder: null,
+  //             rightShoulder: null,
+
+  //             leftHip: null,
+  //             rightHip: null,
+  //           },
+  //           inFrame: false,
+  //           message:
+  //             "Detection error",
+  //         });
+  //       }
+  //     },
+  //     []
+  //   );
+
+  const handleResults =
+  useCallback(
     (poseResult: any) => {
       try {
-        /*
-         * IMPORTANT:
-         * Native module returns:
-         *
-         * poseResult.results[0].landmarks[0]
-         */
-        const rawLandmarks =
+        const mediaPipeLandmarks =
           poseResult?.results?.[0]
             ?.landmarks?.[0];
 
         if (
-          !Array.isArray(rawLandmarks) ||
-          rawLandmarks.length < 33
+          !Array.isArray(
+            mediaPipeLandmarks
+          ) ||
+          mediaPipeLandmarks.length < 33
         ) {
           setResult({
             landmarks: [],
+            angles: {
+              leftKnee: null,
+              rightKnee: null,
+
+              leftElbow: null,
+              rightElbow: null,
+
+              leftShoulder: null,
+              rightShoulder: null,
+
+              leftHip: null,
+              rightHip: null,
+            },
             inFrame: false,
             message:
               "No person detected",
           });
+
           return;
         }
 
+        /*
+         * Keep the original MediaPipe landmarks
+         * for anatomical calculations.
+         */
+        const rawLandmarks: Landmark[] =
+          mediaPipeLandmarks.map(
+            (point: any) => ({
+              x: Number(point?.x) || 0,
+              y: Number(point?.y) || 0,
+              z: Number(point?.z) || 0,
+              visibility: Math.min(
+                Number(
+                  point?.visibility ?? 0
+                ),
+                Number(
+                  point?.presence ??
+                    point?.visibility ??
+                    0
+                )
+              ),
+            })
+          );
+
+        /*
+         * Calculate joint angles from the
+         * original MediaPipe coordinates.
+         */
+        const angles =
+          calculatePoseAngles(
+            rawLandmarks
+          );
+
+        /*
+         * Transform a separate copy for
+         * visualization and full-body detection.
+         */
         const landmarks: Landmark[] =
           rawLandmarks.map(
-            transformLandmark
+            (point) =>
+              transformLandmark(point)
           );
 
         const fullBody =
-          checkFullBody(landmarks);
+          checkFullBody(
+            landmarks
+          );
 
         setResult({
           landmarks,
+          angles,
           inFrame: fullBody,
           message: fullBody
             ? "Person detected"
@@ -213,6 +412,19 @@ export function usePoseDetection() {
 
         setResult({
           landmarks: [],
+          angles: {
+            leftKnee: null,
+            rightKnee: null,
+
+            leftElbow: null,
+            rightElbow: null,
+
+            leftShoulder: null,
+            rightShoulder: null,
+
+            leftHip: null,
+            rightHip: null,
+          },
           inFrame: false,
           message:
             "Detection error",
@@ -221,11 +433,11 @@ export function usePoseDetection() {
     },
     []
   );
-
   const poseDetection =
     useMediaPipePoseDetection(
       {
-        onResults: handleResults,
+        onResults:
+          handleResults,
 
         onError: (error: any) => {
           console.error(
@@ -235,6 +447,19 @@ export function usePoseDetection() {
 
           setResult({
             landmarks: [],
+            angles: {
+              leftKnee: null,
+              rightKnee: null,
+
+              leftElbow: null,
+              rightElbow: null,
+
+              leftShoulder: null,
+              rightShoulder: null,
+
+              leftHip: null,
+              rightHip: null,
+            },
             inFrame: false,
             message:
               "Detection error",
@@ -261,9 +486,9 @@ export function usePoseDetection() {
         fpsMode: 30,
 
         /*
-         * DO NOT force camera/output orientation here.
-         * We perform exactly one coordinate transform
-         * ourselves for Android.
+         * Do not force camera/output orientation.
+         * Android coordinate transformation is handled
+         * separately by transformLandmark().
          */
         mirrorMode:
           "mirror-front-only",
