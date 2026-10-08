@@ -8,7 +8,9 @@ import {
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { Camera, useCameraDevice, useCameraPermission } from "react-native-vision-camera";
+import { useCameraActive } from "../src/hooks/useCameraActive";
 export default function CalibrationScreen() {
+const isActive = useCameraActive();
 const { hasPermission, requestPermission } = useCameraPermission();
 const device = useCameraDevice("front");
 
@@ -56,7 +58,7 @@ if (device == null) {
             <Camera
               style={StyleSheet.absoluteFillObject}
               device={device!}
-              isActive={true}
+              isActive={isActive}
               resizeMode="contain"
             />
 
@@ -79,7 +81,7 @@ if (device == null) {
           style={styles.button}
           onPress={() => router.push("/camera")}
         >
-          <Text style={styles.buttonText}>Continue to Detection</Text>
+          <Text style={styles.buttonText}>Start Guided Practice</Text>
         </TouchableOpacity>
         
       </View>

@@ -1,86 +1,13 @@
-import { Landmark } from "../types/pose";
+import type { Landmark } from "../types/pose";
 
-/**
- * Calculates the angle ABC in the 2D image plane.
- *
- *        A
- *         \
- *          \
- *           B -------- C
- *
- * B is the joint whose angle we want.
- *
- * Examples:
- *   calculateAngle(hip, knee, ankle)
- *   -> knee angle
- *
- *   calculateAngle(shoulder, elbow, wrist)
- *   -> elbow angle
- */
-export function calculateAngle(
-  a: Landmark,
-  b: Landmark,
-  c: Landmark
-): number {
-  // Vector BA
-  const ba = {
-    x: a.x - b.x,
-    y: a.y - b.y,
-  };
-
-  // Vector BC
-  const bc = {
-    x: c.x - b.x,
-    y: c.y - b.y,
-  };
-
-  // Dot product:
-  //
-  // BA · BC
-  //
-  const dot =
-    ba.x * bc.x +
-    ba.y * bc.y;
-
-  // Magnitude of BA
-  const magnitudeBA = Math.sqrt(
-    ba.x * ba.x +
-    ba.y * ba.y
-  );
-
-  // Magnitude of BC
-  const magnitudeBC = Math.sqrt(
-    bc.x * bc.x +
-    bc.y * bc.y
-  );
-
-  // Avoid division by zero.
-  if (
-    magnitudeBA === 0 ||
-    magnitudeBC === 0
-  ) {
-    return 0;
-  }
-
-  // Formula:
-  //
-  //              BA · BC
-  // cos(theta) = ---------
-  //              |BA||BC|
-  //
-  let cosine =
-    dot /
-    (magnitudeBA * magnitudeBC);
-
-  // Protect acos() from floating-point errors.
-  cosine = Math.max(
-    -1,
-    Math.min(1, cosine)
-  );
-
-  // Convert radians to degrees.
-  return (
-    Math.acos(cosine) *
-    (180 / Math.PI)
-  );
+/** Interior angle ABC in degrees, using metric world coordinates. */
+export function calculateAngle(a: Landmark, b: Landmark, c: Landmark): number | null {
+  const ba = [a.x - b.x, a.y - b.y, a.z - b.z];
+  const bc = [c.x - b.x, c.y - b.y, c.z - b.z];
+  if (![...ba, ...bc].every(Number.isFinite)) return null;
+  const lengthBA = Math.hypot(...ba);
+  const lengthBC = Math.hypot(...bc);
+  if (lengthBA < 1e-6 || lengthBC < 1e-6) return null;
+  const cosine = ba.reduce((sum, value, i) => sum + (value / lengthBA) * (bc[i] / lengthBC), 0);
+  return Math.acos(Math.max(-1, Math.min(1, cosine))) * 180 / Math.PI;
 }

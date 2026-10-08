@@ -7,6 +7,7 @@ export interface Landmark {
 }
 
 export interface PoseDetectionResult {
+  receivedAt: number;
   landmarks: Landmark[];
   angles: PoseAngles;
   inFrame: boolean;

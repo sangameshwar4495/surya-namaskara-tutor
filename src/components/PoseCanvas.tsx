@@ -62,13 +62,12 @@ const CONNECTIONS: [
   [30, 32],
 ];
 
-const PORTRAIT_SOURCE_ASPECT =
-  3 / 4;
-
 export default function PoseCanvas({
   landmarks,
+  sourceAspect = 3 / 4,
 }: {
   landmarks: Landmark[];
+  sourceAspect?: number;
 }) {
   const [size, setSize] =
     useState({
@@ -89,7 +88,7 @@ export default function PoseCanvas({
        * The camera is using resizeMode="contain".
        *
        * After our 90° sensor rotation,
-       * the source image is portrait 3:4.
+       * use the selected camera format's portrait aspect ratio.
        *
        * Calculate the exact rendered image
        * rectangle inside the camera view so
@@ -109,13 +108,13 @@ export default function PoseCanvas({
 
       if (
         viewAspect >
-        PORTRAIT_SOURCE_ASPECT
+        sourceAspect
       ) {
         // Vertical space is limiting.
         drawHeight = size.height;
         drawWidth =
           drawHeight *
-          PORTRAIT_SOURCE_ASPECT;
+          sourceAspect;
 
         offsetX =
           (size.width -
@@ -127,7 +126,7 @@ export default function PoseCanvas({
 
         drawHeight =
           drawWidth /
-          PORTRAIT_SOURCE_ASPECT;
+          sourceAspect;
 
         offsetY =
           (size.height -
@@ -146,7 +145,7 @@ export default function PoseCanvas({
             point.y * drawHeight,
         })
       );
-    }, [landmarks, size]);
+    }, [landmarks, size, sourceAspect]);
 
   return (
     <View
