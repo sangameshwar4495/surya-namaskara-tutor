@@ -1,19 +1,24 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { PoseDetectionResult } from "../types/pose";
-import { evaluatePose, PRACTICE_POSES } from "../services/practiceEvaluator";
-import { MAX_SAMPLE_GAP_MS, PREPARE_MS, sampleSession, startSession, tickSession } from "../services/practiceSession";
+import { tracking, PRACTICE_POSES, type Evaluation } from "../services/practiceEvaluator";
+import { PracticeMeasurements } from "../services/practiceMeasurements";
+import { checkSideInFrame } from "../services/sideTracking";
+import { MAX_SAMPLE_GAP_MS, sampleSession, startSession, tickSession } from "../services/practiceSession";
 
 export function useGuidedPractice(result: PoseDetectionResult, active: boolean) {
   const [session, setSession] = useState(() => startSession(performance.now()));
   const [now, setNow] = useState(performance.now());
   const acceptAfter = useRef(performance.now());
-  const evaluation = useMemo(() => evaluatePose(result, session.poseIndex), [result, session.poseIndex]);
-  const [message, setMessage] = useState(evaluation.message);
+  const measurements = useRef(new PracticeMeasurements());
+  const lastProcessed = useRef(-1);
+  const [evaluation, setEvaluation] = useState<Evaluation>(() => tracking("Waiting for camera tracking…"));
 
   useEffect(() => {
     acceptAfter.current = performance.now();
+    measurements.current = new PracticeMeasurements();
+    setEvaluation(tracking("Waiting for camera tracking…"));
     setSession(s => s.phase === "complete" ? s : {
-      ...s, phase: "prepare", until: performance.now() + PREPARE_MS, heldMs: 0, lastSample: null,
+      ...startSession(performance.now()), poseIndex: s.poseIndex,
     });
   }, [active]);
 
@@ -28,25 +33,26 @@ export function useGuidedPractice(result: PoseDetectionResult, active: boolean) 
   }, [active]);
 
   useEffect(() => {
-    if (!active || result.receivedAt <= acceptAfter.current || performance.now() - result.receivedAt > MAX_SAMPLE_GAP_MS) return;
-    setSession(s => sampleSession(s, result.receivedAt, evaluation.ready));
-  }, [active, result, evaluation]);
-
-  // Stabilize spoken/readable corrections without letting bad frames earn hold time.
-  useEffect(() => {
-    const timer = setTimeout(() => setMessage(evaluation.message), 250);
-    return () => clearTimeout(timer);
-  }, [evaluation.message]);
+    if (!active || result.receivedAt <= acceptAfter.current || result.receivedAt <= lastProcessed.current || performance.now() - result.receivedAt > MAX_SAMPLE_GAP_MS) return;
+    lastProcessed.current = result.receivedAt;
+    const next = measurements.current.evaluate(result, session.poseIndex);
+    setEvaluation(next);
+    setSession(s => sampleSession(s, result.receivedAt, next.ready,
+      s.poseIndex === 1 ? checkSideInFrame(result.landmarks).inFrame : result.inFrame));
+  }, [active, result, session.poseIndex]);
 
   const restart = useCallback(() => {
     const time = performance.now();
     acceptAfter.current = time;
+    measurements.current = new PracticeMeasurements();
+    setEvaluation(tracking("Waiting for camera tracking…"));
     setNow(time);
     setSession(startSession(time));
   }, []);
 
   return { session, restart, evaluation, now,
-    message: now - result.receivedAt > MAX_SAMPLE_GAP_MS ? "Waiting for fresh camera tracking…" : message,
-    fresh: now - result.receivedAt <= MAX_SAMPLE_GAP_MS,
+    framing: session.poseIndex === 1 ? checkSideInFrame(result.landmarks) : { inFrame: result.inFrame, message: result.message },
+    message: now - result.receivedAt > MAX_SAMPLE_GAP_MS ? "Tracking lost — move fully into view in good light. Hold time paused." : evaluation.message,
+    fresh: result.receivedAt > acceptAfter.current && now - result.receivedAt <= MAX_SAMPLE_GAP_MS,
   };
 }

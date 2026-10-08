@@ -1,5 +1,6 @@
 import type { Landmark, PoseDetectionResult } from "../types/pose";
 import { calculatePoseAngles } from "./poseAngles";
+import { checkPersonInFrame } from "./frameDetection";
 
 type Point = Partial<Landmark> & { presence?: number };
 const coordinate = (value: unknown) => typeof value === "number" && Number.isFinite(value) ? value : NaN;
@@ -25,10 +26,5 @@ export function processDetection(payload: unknown, android: boolean, receivedAt:
   const world = pose?.worldLandmarks?.[0];
   const angles = calculatePoseAngles(Array.isArray(world)
     ? Array.from(world, (point, index) => normalize(point, raw[index])) : []);
-  const required = [0, 11, 12, 23, 24, 25, 26, 27, 28];
-  const inFrame = required.every(index => {
-    const p = landmarks[index];
-    return p && p.visibility >= 0.5 && p.x >= 0.02 && p.x <= 0.98 && p.y >= 0.02 && p.y <= 0.98;
-  });
-  return { landmarks, angles, inFrame, receivedAt, message: inFrame ? "Person detected" : "Show your whole body" };
+  return { landmarks, angles, receivedAt, ...checkPersonInFrame(landmarks) };
 }

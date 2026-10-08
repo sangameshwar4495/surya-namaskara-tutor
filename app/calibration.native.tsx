@@ -81,7 +81,7 @@ if (device == null) {
           style={styles.button}
           onPress={() => router.push("/camera")}
         >
-          <Text style={styles.buttonText}>Start Guided Practice</Text>
+          <Text style={styles.buttonText}>Continue to Camera Setup</Text>
         </TouchableOpacity>
         
       </View>

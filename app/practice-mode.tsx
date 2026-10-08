@@ -40,7 +40,7 @@ export default function PracticeModeScreen() {
           icon="user"
           badge="GUIDED"
           title="Step-by-step practice"
-          description="Practice Prayer Pose and Raised Arms with live posture feedback and timed holds."
+          description="Practice Prayer Pose and Hasta Uttanasana with live posture feedback and timed holds."
           onPress={() => {
             router.push("/calibration");
           }}
