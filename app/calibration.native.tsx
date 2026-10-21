@@ -48,9 +48,10 @@ if (device == null) {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
 
+        <Text style={styles.eyebrow}>GUIDED PRACTICE</Text>
         <Text style={styles.title}>Camera Calibration</Text>
         <Text style={styles.subtitle}>
-          Stand inside the frame and keep your full body visible before starting.
+          Keep the camera level and your full body visible, with room for raised arms and floor poses. Follow each pose's front or side-view guide. Once framing is stable, a 3-second countdown starts automatically.
         </Text>
 
         {/* Camera frame placeholder */}
@@ -81,7 +82,7 @@ if (device == null) {
           style={styles.button}
           onPress={() => router.push("/camera")}
         >
-          <Text style={styles.buttonText}>Continue to Camera Setup</Text>
+          <Text style={styles.buttonText}>Continue to Camera Check</Text>
         </TouchableOpacity>
         
       </View>
@@ -113,6 +114,12 @@ const styles = StyleSheet.create({
     fontSize: 30,
     fontWeight: "700",
     color: "#111111",
+    textAlign: "center",
+  },
+  eyebrow: {
+    color: "rgb(91,123,97)",
+    fontSize: 12,
+    fontWeight: "700",
     textAlign: "center",
   },
   subtitle: {

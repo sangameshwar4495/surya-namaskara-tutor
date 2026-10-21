@@ -13,11 +13,11 @@ const figures: Record<Illustration, { head: [number, number]; body: string }> = 
   cobra: { head: [143, 76], body: "M137 93 Q127 150 85 156 L28 160 M133 104 L119 127 L144 163 M85 156 L54 168 L27 168" },
   dog: { head: [139, 125], body: "M132 113 L101 64 L62 115 L33 168 M101 64 L77 124 L56 168 M132 113 L164 168 M123 101 L147 168" },
 };
-export default function PoseIllustration({ illustration }: { illustration: Illustration }) {
+export default function PoseIllustration({ illustration, overlay = false }: { illustration: Illustration; overlay?: boolean }) {
   const figure = figures[illustration];
   return <Svg width="100%" height="100%" viewBox="0 0 200 190" accessible={false}>
-    <Ellipse cx="100" cy="174" rx="80" ry="6" fill={colors.pale} />
-    <Path d={figure.body} stroke={colors.primary} strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-    <Circle cx={figure.head[0]} cy={figure.head[1]} r="12" fill={colors.accent} />
+    {!overlay && <Ellipse cx="100" cy="174" rx="80" ry="6" fill={colors.pale} />}
+    <Path d={figure.body} stroke={overlay ? "white" : colors.primary} strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    <Circle cx={figure.head[0]} cy={figure.head[1]} r="12" fill={overlay ? "white" : colors.accent} />
   </Svg>;
 }

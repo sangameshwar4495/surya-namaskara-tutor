@@ -2,6 +2,7 @@ import type { PoseDetectionResult } from "../types/pose";
 import type { PoseAngles } from "./poseAngles";
 import { evaluatePose, tracking, type Evaluation } from "./practiceEvaluator";
 import { INTERRUPTION_GRACE_MS, MAX_SAMPLE_GAP_MS } from "./practiceSession";
+import { PRACTICE_POSES } from "../data/practicePoses";
 import { visibleSide } from "./sideTracking";
 
 const median = (values: number[]) => {
@@ -20,7 +21,7 @@ export class PracticeMeasurements {
 
   evaluate(result: PoseDetectionResult, poseIndex: number): Evaluation {
     const previous = this.frames.at(-1);
-    const side = poseIndex === 1 ? visibleSide(result.landmarks)?.name : undefined;
+    const side = PRACTICE_POSES[poseIndex]?.camera === "side" ? visibleSide(result.landmarks)?.name : undefined;
     if (side !== this.side || poseIndex !== this.poseIndex || (previous &&
       (result.receivedAt <= previous.receivedAt || result.receivedAt - previous.receivedAt > MAX_SAMPLE_GAP_MS))) {
       this.frames = [];
@@ -32,7 +33,7 @@ export class PracticeMeasurements {
     const accepted = this.lastAccepted !== null && result.receivedAt - this.lastAccepted < INTERRUPTION_GRACE_MS;
     const raw = evaluatePose(result, poseIndex, accepted);
     // Current confidence and framing always override historical good measurements.
-    if (raw.kind === "tracking") {
+    if (raw.kind === "tracking" || raw.kind === "manual") {
       this.frames = [];
       this.mismatchSince = null;
       return raw;

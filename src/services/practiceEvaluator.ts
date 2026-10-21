@@ -2,12 +2,11 @@ import type { PoseDetectionResult } from "../types/pose";
 import { BODY_SIDES, checkSideInFrame, reliablePoint, visibleSide } from "./sideTracking";
 import { checkHastaProfile } from "./hastaUttanasana";
 
-export const PRACTICE_POSES = [
-  { name: "Prayer Pose", instruction: "Face the camera. Stand tall and bring your hands together at your chest." },
-  { name: "Hasta Uttanasana", instruction: "Turn sideways, with your toes pointing right in the preview like the reference. Raise both arms alongside your ears and lift your chest into a comfortable backward arch. Keep your legs long; do not force the depth shown." },
-] as const;
+import { PRACTICE_POSES } from "../data/practicePoses";
+export { PRACTICE_POSES } from "../data/practicePoses";
+import { evaluateSequencePose } from "./sequenceEvaluator";
 
-export interface Evaluation { ready: boolean; kind: "ready" | "tracking" | "adjusting" | "posture"; message: string }
+export interface Evaluation { ready: boolean; kind: "ready" | "tracking" | "adjusting" | "posture" | "manual"; message: string }
 const correction = (message: string): Evaluation => ({ ready: false, kind: "posture", message });
 export const tracking = (message: string): Evaluation => ({ ready: false, kind: "tracking", message });
 
@@ -17,7 +16,9 @@ export function evaluatePose(result: PoseDetectionResult, poseIndex: number, acc
   const slack = accepted ? 3 : 0;
   const margin = accepted ? 0.04 : 0;
   if (!PRACTICE_POSES[poseIndex]) return correction("Practice complete");
-  if (poseIndex === 1) {
+  const family = PRACTICE_POSES[poseIndex].family;
+  if (family !== "prayer" && family !== "raised") return evaluateSequencePose(result, poseIndex, accepted);
+  if (family === "raised") {
     const framing = checkSideInFrame(result.landmarks);
     if (!framing.inFrame) return tracking(framing.message);
     const p = result.landmarks;
@@ -61,13 +62,13 @@ export function evaluatePose(result: PoseDetectionResult, poseIndex: number, acc
   if (width < 0.06 || torso < 0.1) return correction("Face the camera and stand upright");
   if (a.leftKnee! < 155 - slack || a.rightKnee! < 155 - slack) return correction("Gently straighten your knees without locking them");
   if (a.leftHip! < 155 - slack || a.rightHip! < 155 - slack) {
-    return correction(poseIndex === 0 ? "Stand tall with your shoulders above your hips" : "Lengthen your torso and reduce the bend at your hips");
+    return correction(family === "prayer" ? "Stand tall with your shoulders above your hips" : "Lengthen your torso and reduce the bend at your hips");
   }
   if (Math.abs(shoulderX - hipX) > width * (0.3 + margin)) {
     return correction("Keep your shoulders centered above your hips");
   }
   if (Math.abs(p[27].x - p[28].x) > width * (0.85 + margin)) return correction("Bring your feet closer together");
-  if (poseIndex === 0) {
+  if (family === "prayer") {
     if (Math.abs(p[15].x - p[16].x) > width * (0.45 + margin) || Math.abs(p[15].y - p[16].y) > torso * (0.25 + margin)) {
       return correction("Bring your hands together");
     }

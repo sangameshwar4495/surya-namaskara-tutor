@@ -11,6 +11,11 @@ require.extensions['.ts'] = (module, filename) => {
 const { calculateAngle } = require('../src/services/angleCalculator.ts');
 const { processDetection } = require('../src/services/processDetection.ts');
 const { evaluatePose } = require('../src/services/practiceEvaluator.ts');
+const { PRACTICE_POSES } = require('../src/data/practicePoses.ts');
+const { poses } = require('../src/data/poses.ts');
+const { calculatePoseAngles } = require('../src/services/poseAngles.ts');
+const { practiceFraming } = require('../src/services/practiceFraming.ts');
+const { navigateSession, confirmManual, resetStep } = require('../src/services/practiceSession.ts');
 const { startSession, tickSession, sampleSession } = require('../src/services/practiceSession.ts');
 const p = (x, y, z = 0) => ({ x, y, z, visibility: 1 });
 
@@ -354,4 +359,162 @@ test('a visible bent far-side knee is checked even if its arm is occluded',()=>{
  const r=occludedProfile();for(const i of [24,26,28]) r.landmarks[i].visibility=.9;
  r.angles.rightKnee=120;
  assert.equal(evaluatePose(r,1).kind,'posture');
+});
+
+// Planar fixtures derive angles from the same coordinates, rather than assigning
+// successful angle values independently of the depicted shape.
+function sequenceFixture(index) {
+ const pose=PRACTICE_POSES[index];
+ if(pose.family==='prayer') return prayer();
+ if(pose.family==='raised') return standingPose(1);
+ const r=prayer();
+ const shapes={
+  fold:[[.55,.58],[.56,.70],[.55,.83],[.45,.35],[.45,.62],[.45,.85]],
+  plank:[[.72,.42],[.73,.60],[.74,.78],[.48,.49],[.30,.55],[.13,.61]],
+  cobra:[[.68,.43],[.64,.62],[.70,.77],[.48,.75],[.30,.77],[.12,.79]],
+  dog:[[.66,.52],[.75,.68],[.84,.84],[.45,.25],[.29,.53],[.12,.81]],
+  lunge:[[.60,.30],[.70,.55],[.76,.80],[.44,.47],[.75,.53],[.76,.83]],
+  salute:[[.70,.70],[.65,.60],[.76,.82],[.45,.55],[.30,.78],[.12,.82]],
+ };
+ const coords=shapes[pose.family];
+ [11,13,15,23,25,27].forEach((i,j)=>{
+  r.landmarks[i]=p(...coords[j]);r.landmarks[i+1]=p(coords[j][0]+.01,coords[j][1]);
+ });
+ if(pose.family==='lunge') {
+  const rear=pose.frontLeg==='left'?[26,28]:[25,27];
+  r.landmarks[rear[0]]=p(.25,.75);r.landmarks[rear[1]]=p(.10,.83);
+ }
+ for(const [ankle,heel,toe] of [[27,29,31],[28,30,32]]) {
+  r.landmarks[heel]=p(r.landmarks[ankle].x-.01,r.landmarks[ankle].y+.01);
+  r.landmarks[toe]=p(r.landmarks[ankle].x+.04,r.landmarks[ankle].y+.01);
+ }
+ r.landmarks[0]=p(coords[0][0]+.02,Math.max(.08,coords[0][1]-.06));
+ r.angles=calculatePoseAngles(r.landmarks);
+ return r;
+}
+
+test('all 12 sequence entries share names, media, instructions and explicit camera/coverage metadata',()=>{
+ const names=['Pranamasana','Hasta Uttanasana','Padahastasana','Ashwa Sanchalanasana','Dandasana','Ashtanga Namaskara','Bhujangasana','Parvatasana','Ashwa Sanchalanasana','Padahastasana','Hasta Uttanasana','Pranamasana'];
+ assert.equal(PRACTICE_POSES.length,12);
+ assert.deepEqual(PRACTICE_POSES.map(p=>p.name),names);
+ assert.deepEqual(poses.map(p=>p.name),names);
+ PRACTICE_POSES.forEach((pose,i)=>{
+  assert.equal(pose.id,i+1);assert.ok(pose.instruction.length>20);
+  assert.ok(pose.setup && pose.cameraLabel && pose.coverage && pose.subtitle);
+  assert.equal(pose.media.illustration,pose.family);
+  assert.equal(pose.camera,[0,11].includes(i)?'front':'side');
+ });
+ assert.equal(PRACTICE_POSES[3].frontLeg,'left');assert.equal(PRACTICE_POSES[8].frontLeg,'right');
+ assert.deepEqual(PRACTICE_POSES.filter(p=>p.manual).map(p=>p.id),[6]);
+});
+test('each implemented new pose accepts a coherent geometry fixture',()=>{
+ for(const i of [2,3,4,6,7,8,9]) {
+  const r=sequenceFixture(i);const e=evaluatePose(r,i);
+  assert.equal(practiceFraming(r,i).inFrame,true);
+  assert.equal(e.ready,true,`${i+1}: ${e.message}`);
+ }
+});
+test('new evaluators reject standing prayer, missing tracking and missing joint angles',()=>{
+ for(const i of [2,3,4,6,7,8,9]) {
+  assert.equal(evaluatePose(prayer(),i).ready,false,`standing at ${i+1}`);
+  const r=sequenceFixture(i);r.landmarks=[];
+  assert.equal(evaluatePose(r,i).kind,'tracking');
+  const missing=sequenceFixture(i);missing.angles.leftHip=null;
+  assert.equal(evaluatePose(missing,i).kind,'tracking');
+ }
+});
+test('lunge repetitions require the correct front leg and both legs visible',()=>{
+ assert.equal(evaluatePose(sequenceFixture(3),8).ready,false);
+ assert.equal(evaluatePose(sequenceFixture(8),3).ready,false);
+ const r=sequenceFixture(3);r.landmarks[26].visibility=.1;
+ assert.equal(evaluatePose(r,3).kind,'tracking');
+});
+test('new pose corrections stop credit for meaningful shape errors',()=>{
+ const changes=[
+  [2,r=>{r.landmarks[15].y=.3;}],
+  [3,r=>{r.landmarks[15].y=.3;}],
+  [4,r=>{r.angles.leftHip=120;}],
+  [4,r=>{r.landmarks[15].x=.40;}],
+  [6,r=>{r.landmarks[11].y=.74;}],
+  [6,r=>{r.landmarks[23].y=.45;}],
+  [7,r=>{r.landmarks[23].y=.70;}],
+  [7,r=>{r.angles.leftElbow=90;}],
+ ];
+ for(const [i,change] of changes) {
+  const r=sequenceFixture(i);change(r);
+  assert.equal(evaluatePose(r,i,true).ready,false,`${i+1}`);
+ }
+});
+test('repeated standing poses reuse all original checks',()=>{
+ for(const [first,repeat] of [[0,11],[1,10]]) {
+  const r=sequenceFixture(first);
+  assert.deepEqual(evaluatePose(r,first),evaluatePose(r,repeat));
+  r.angles.leftKnee=100;
+  assert.deepEqual(evaluatePose(r,first),evaluatePose(r,repeat));
+  assert.equal(evaluatePose(r,repeat).ready,false);
+ }
+ const handsApart=prayer();handsApart.landmarks[15].x=.2;
+ assert.deepEqual(evaluatePose(handsApart,0),evaluatePose(handsApart,11));
+ assert.equal(evaluatePose(handsApart,11).ready,false);
+});
+test('all 12 steps progress through framing, countdown, measurement filters and completion',()=>{
+ let s=startSession(0),time=0;
+ const filter=new PracticeMeasurements();
+ for(let i=0;i<12;i++) {
+  assert.equal(s.poseIndex,i);const pose=PRACTICE_POSES[i];
+  for(let k=0;k<42;k++) {
+   const r=sequenceFixture(i);r.receivedAt=time;
+   s=sampleSession(s,time,filter.evaluate(r,i).ready,practiceFraming(r,i).inFrame);
+   s=tickSession(s,time,12,pose.manual);time+=100;
+  }
+  if(pose.manual) {
+   assert.equal(s.phase,'manual');assert.equal(s.heldMs,0);
+   assert.equal(evaluatePose(sequenceFixture(i),i).kind,'manual');
+   assert.equal(sampleSession(s,time,true,true).phase,'manual');
+   s=confirmManual(s,time,12);
+  } else {
+   while(s.phase==='holding') {
+    assert.ok(time<150000,'sequence should not stall');
+    const r=sequenceFixture(i);r.receivedAt=time;
+    s=sampleSession(s,time,filter.evaluate(r,i).ready,true);time+=100;
+   }
+   assert.equal(s.phase,'success');time=s.until;s=tickSession(s,time,12);
+  }
+  time+=100;
+ }
+ assert.equal(s.phase,'complete');
+ assert.equal(Object.values(s.outcomes).filter(v=>v==='verified').length,11);
+ assert.equal(s.outcomes[5],'manual');
+});
+test('navigation bounds, skipped outcomes, restart and pause resets remain truthful',()=>{
+ let s=startSession(0);
+ assert.equal(navigateSession(s,1,-1,12),s);
+ s=navigateSession(s,100,1,12);assert.equal(s.poseIndex,1);assert.equal(s.outcomes[0],'skipped');
+ s={...s,phase:'holding',heldMs:3000,lastSample:100};
+ s=navigateSession(s,200,-1,12);assert.equal(s.poseIndex,0);assert.equal(s.heldMs,0);assert.equal(s.phase,'setup');
+ s={...s,outcomes:{0:'verified'},heldMs:2000};
+ s=resetStep(s,300);assert.equal(s.heldMs,0);assert.equal(s.outcomes[0],'verified');
+ s=navigateSession({...s,poseIndex:11},400,1,12);assert.equal(s.phase,'complete');assert.equal(s.poseIndex,11);assert.equal(s.outcomes[11],'skipped');
+ assert.deepEqual(startSession(500).outcomes,{});
+ assert.equal(confirmManual(startSession(600),700,12).phase,'setup');
+});
+
+test('initial camera check stays visible through framing and the full three-second countdown',()=>{
+ let s=startSession(0);
+ assert.equal(tickSession(s,10000,12).cameraChecked,false);
+ for(let t=0;t<=1000;t+=100) s=sampleSession(s,t,false,true);
+ assert.equal(s.phase,'prepare');assert.equal(s.until,4000);
+ for(let t=1100;t<4000;t+=100) {
+  s=sampleSession(s,t,false,true);s=tickSession(s,t,12);
+  assert.equal(s.cameraChecked,false);assert.equal(s.heldMs,0);
+ }
+ const lost=sampleSession(s,3950,false,false);
+ assert.equal(lost.phase,'setup');assert.equal(lost.cameraChecked,false);
+ s=sampleSession(s,4000,false,true);s=tickSession(s,4000,12);
+ assert.equal(s.cameraChecked,true);assert.equal(s.phase,'holding');assert.equal(s.poseIndex,0);
+ assert.equal(resetStep(s,4100).cameraChecked,true);
+ const next=navigateSession(s,4200,1,12);
+ assert.equal(next.cameraChecked,true);
+ assert.equal(navigateSession(next,4300,-1,12).cameraChecked,true);
+ assert.equal(startSession(4400).cameraChecked,false);
 });

@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { PoseDetectionResult } from "../types/pose";
 import { tracking, PRACTICE_POSES, type Evaluation } from "../services/practiceEvaluator";
 import { PracticeMeasurements } from "../services/practiceMeasurements";
-import { checkSideInFrame } from "../services/sideTracking";
-import { MAX_SAMPLE_GAP_MS, sampleSession, startSession, tickSession } from "../services/practiceSession";
+import { practiceFraming } from "../services/practiceFraming";
+import { MAX_SAMPLE_GAP_MS, sampleSession, startSession, tickSession, resetStep, navigateSession, confirmManual } from "../services/practiceSession";
 
 export function useGuidedPractice(result: PoseDetectionResult, active: boolean) {
   const [session, setSession] = useState(() => startSession(performance.now()));
@@ -17,9 +17,7 @@ export function useGuidedPractice(result: PoseDetectionResult, active: boolean) 
     acceptAfter.current = performance.now();
     measurements.current = new PracticeMeasurements();
     setEvaluation(tracking("Waiting for camera tracking…"));
-    setSession(s => s.phase === "complete" ? s : {
-      ...startSession(performance.now()), poseIndex: s.poseIndex,
-    });
+    setSession(s => s.phase === "complete" ? s : resetStep(s, performance.now()));
   }, [active]);
 
   useEffect(() => {
@@ -27,7 +25,7 @@ export function useGuidedPractice(result: PoseDetectionResult, active: boolean) 
     const timer = setInterval(() => {
       const time = performance.now();
       setNow(time);
-      setSession(s => tickSession(s, time, PRACTICE_POSES.length));
+      setSession(s => tickSession(s, time, PRACTICE_POSES.length, PRACTICE_POSES[s.poseIndex]?.manual));
     }, 100);
     return () => clearInterval(timer);
   }, [active]);
@@ -38,7 +36,7 @@ export function useGuidedPractice(result: PoseDetectionResult, active: boolean) 
     const next = measurements.current.evaluate(result, session.poseIndex);
     setEvaluation(next);
     setSession(s => sampleSession(s, result.receivedAt, next.ready,
-      s.poseIndex === 1 ? checkSideInFrame(result.landmarks).inFrame : result.inFrame));
+      practiceFraming(result, s.poseIndex).inFrame));
   }, [active, result, session.poseIndex]);
 
   const restart = useCallback(() => {
@@ -50,8 +48,17 @@ export function useGuidedPractice(result: PoseDetectionResult, active: boolean) 
     setSession(startSession(time));
   }, []);
 
-  return { session, restart, evaluation, now,
-    framing: session.poseIndex === 1 ? checkSideInFrame(result.landmarks) : { inFrame: result.inFrame, message: result.message },
+  const changeStep = useCallback((direction: -1 | 1, manual = false) => {
+    const time = performance.now();
+    acceptAfter.current = time;
+    measurements.current = new PracticeMeasurements();
+    setEvaluation(tracking("Waiting for fresh tracking for this step…"));
+    setNow(time);
+    setSession(s => manual ? confirmManual(s, time, PRACTICE_POSES.length) : navigateSession(s, time, direction, PRACTICE_POSES.length));
+  }, []);
+
+  return { session, restart, changeStep, evaluation, now,
+    framing: practiceFraming(result, session.poseIndex),
     message: now - result.receivedAt > MAX_SAMPLE_GAP_MS ? "Tracking lost — move fully into view in good light. Hold time paused." : evaluation.message,
     fresh: result.receivedAt > acceptAfter.current && now - result.receivedAt <= MAX_SAMPLE_GAP_MS,
   };

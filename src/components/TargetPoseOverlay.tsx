@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { Image, StyleSheet, View } from "react-native";
 import Svg, { Circle, G, Path, Rect } from "react-native-svg";
+import { PRACTICE_POSES } from "../data/practicePoses";
+import PoseIllustration from "./demo/PoseIllustration";
 
 /** Prayer silhouette and the supplied side-view Hasta Uttanasana reference. */
 export default function TargetPoseOverlay({ poseIndex, sourceAspect, setup, framed }: {
@@ -9,10 +11,17 @@ export default function TargetPoseOverlay({ poseIndex, sourceAspect, setup, fram
   const [size, setSize] = useState({ width: 0, height: 0 });
   const width = Math.min(size.width, size.height * sourceAspect);
   const height = width / sourceAspect;
-  if (poseIndex === 1) return <View pointerEvents="none" style={StyleSheet.absoluteFill}
+  const pose = PRACTICE_POSES[poseIndex];
+  if (pose.family === "raised") return <View pointerEvents="none" style={StyleSheet.absoluteFill}
     onLayout={e => setSize(e.nativeEvent.layout)} accessible={false}>
     <Image source={require("../../assets/hasta-uttanasana-reference.png")} resizeMode="contain"
       style={{ width, height, left: (size.width - width) / 2, top: (size.height - height) / 2, opacity: 0.22 }} />
+  </View>;
+  if (pose.family !== "prayer") return <View pointerEvents="none" style={StyleSheet.absoluteFill}
+    onLayout={e => setSize(e.nativeEvent.layout)} accessible={false}>
+    <View style={{ width, height, left: (size.width - width) / 2, top: (size.height - height) / 2, opacity: 0.22 }}>
+      <PoseIllustration illustration={pose.family} overlay />
+    </View>
   </View>;
   return <View pointerEvents="none" style={StyleSheet.absoluteFill}
     onLayout={e => setSize(e.nativeEvent.layout)} accessible={false}>
@@ -27,9 +36,7 @@ export default function TargetPoseOverlay({ poseIndex, sourceAspect, setup, fram
         <Path d="M138 363 L126 366 M162 363 L174 366" strokeWidth="14" />
         <Path d={setup
           ? "M126 133 L111 182 L103 230 M174 133 L189 182 L197 230"
-          : poseIndex === 0
-            ? "M126 133 L105 177 L146 153 M174 133 L195 177 L154 153"
-            : "M126 133 L115 84 L124 31 M174 133 L185 84 L176 31"}
+          : "M126 133 L105 177 L146 153 M174 133 L195 177 L154 153"}
           fill="none" strokeWidth="16" />
       </G>
     </Svg>
