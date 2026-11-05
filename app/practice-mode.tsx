@@ -35,6 +35,14 @@ export default function PracticeModeScreen() {
           } }
         />
 
+        <PracticeCard
+          icon="activity"
+          badge="EXPERIMENTAL"
+          title="Learned movement practice"
+          description="Follow a short demonstration through five poses with live corrections."
+          onPress={() => router.push("/dataset-practice")}
+        />
+
         {/* Guided Practice */}
         <PracticeCard
           icon="user"

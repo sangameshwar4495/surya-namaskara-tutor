@@ -31,11 +31,14 @@
       "expo-router",
       "expo-font",
       [
-  "react-native-mediapipe-posedetection",
-  {
-    "assetsPaths": ["./assets/models/"]
-  }
-]
+        "react-native-mediapipe-posedetection",
+        {
+          "assetsPaths": [
+            "./assets/models/"
+          ]
+        }
+      ],
+      "expo-video"
     ]
   }
 }

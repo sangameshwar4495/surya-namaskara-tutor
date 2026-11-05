@@ -42,3 +42,11 @@ yarn-error.*
 
 # 
 CLAUDE.md
+
+# Local video corpus and reproducible ML intermediates
+dataset/
+.venv/
+__pycache__/
+ml/data/
+ml/reports/
+.gradle-tmp/

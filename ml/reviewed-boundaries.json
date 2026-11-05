@@ -1,0 +1,335 @@
+[
+  {
+    "path": "train/Bhujasana/video 1.mp4",
+    "sha256": "9797f15ac8614036f4cd3d72e44bfe27153b8def7b5cf0d8c73daf9be7046d0c",
+    "useForTraining": true,
+    "startMs": 2000,
+    "finalMs": 5000,
+    "endMs": 12000,
+    "note": "Entry and attained hold selected from timestamped source contact sheets; timings are approximate."
+  },
+  {
+    "path": "train/Bhujasana/video 10.mp4",
+    "sha256": "e16ef90c8da828f7bcec73850b36f1371faa24d961e56f3cc7cfce46532ef42e",
+    "useForTraining": false,
+    "note": "Not selected for this reference revision: complete entry, movement side or repetition needs review."
+  },
+  {
+    "path": "train/Bhujasana/video 11.mp4",
+    "sha256": "ff3840765f3ecb68a1135d716ad1d309e723363077a570bb3497af83b8b39881",
+    "useForTraining": true,
+    "startMs": 5000,
+    "finalMs": 8000,
+    "endMs": 16000,
+    "note": "Entry and attained hold selected from timestamped source contact sheets; timings are approximate."
+  },
+  {
+    "path": "train/Bhujasana/video 12.mp4",
+    "sha256": "c758a33b746fc2c8f1e497a45a7ddbf14b4556aeaa81e49009db625501779d5a",
+    "useForTraining": true,
+    "startMs": 1000,
+    "finalMs": 5000,
+    "endMs": 16000,
+    "note": "Entry and attained hold selected from timestamped source contact sheets; timings are approximate."
+  },
+  {
+    "path": "train/Bhujasana/video 2.mp4",
+    "sha256": "4fbc6f509c240ce0354b3c2229d7bef4bf47f981909a67c48e3337ec0158ece8",
+    "useForTraining": true,
+    "startMs": 5000,
+    "finalMs": 12000,
+    "endMs": 20000,
+    "note": "Entry and attained hold selected from timestamped source contact sheets; timings are approximate."
+  },
+  {
+    "path": "train/Bhujasana/video 3.mp4",
+    "sha256": "1f75f74c65cdd1e7a928ce88e8eeb30090e73014f8425e5fd518b05c3b429bc4",
+    "useForTraining": true,
+    "startMs": 2000,
+    "finalMs": 5000,
+    "endMs": 16000,
+    "note": "Entry and attained hold selected from timestamped source contact sheets; timings are approximate."
+  },
+  {
+    "path": "train/Bhujasana/video 4.mp4",
+    "sha256": "95c7f5146c859c8987f30218e8e5fb2109df30c64ce64cba2ca5369247c80113",
+    "useForTraining": true,
+    "startMs": 2000,
+    "finalMs": 5000,
+    "endMs": 16000,
+    "note": "Entry and attained hold selected from timestamped source contact sheets; timings are approximate."
+  },
+  {
+    "path": "train/Bhujasana/video 5.mp4",
+    "sha256": "eba992ca927cd871057544b3d475256490f0802d25f193ab97bd068545b18d2b",
+    "useForTraining": false,
+    "note": "Not selected for this reference revision: complete entry, movement side or repetition needs review."
+  },
+  {
+    "path": "train/Bhujasana/video 6.mp4",
+    "sha256": "bf4e962ac9a64ac42330da19766ab1a6d44757e55172698b4cebf4339ba223f5",
+    "useForTraining": false,
+    "note": "Not selected for this reference revision: complete entry, movement side or repetition needs review."
+  },
+  {
+    "path": "train/Bhujasana/video 7.mp4",
+    "sha256": "40ef16e2bc6816e6dcca6a02dbed6d3cd58be65db85f7e5c9bf80fdf995f4901",
+    "useForTraining": false,
+    "note": "Not selected for this reference revision: complete entry, movement side or repetition needs review."
+  },
+  {
+    "path": "train/Bhujasana/video 8.mp4",
+    "sha256": "60922239c189bc907a333ff7b654fc2a17af798bc0a8681de1c33ce59a7341d4",
+    "useForTraining": false,
+    "note": "Not selected for this reference revision: complete entry, movement side or repetition needs review."
+  },
+  {
+    "path": "train/Bhujasana/video 9.mp4",
+    "sha256": "211437d15cfe0e1c48fcf074481a067b7217a24b6eed25a03fb4feb8965d919a",
+    "useForTraining": false,
+    "note": "Not selected for this reference revision: complete entry, movement side or repetition needs review."
+  },
+  {
+    "path": "train/Tadasana/video 1.mp4",
+    "sha256": "e5994fd795acde6af96e72205fa2fa63c02ab2d40a2e81a30a43b17824f49add",
+    "useForTraining": true,
+    "startMs": 2000,
+    "finalMs": 5000,
+    "endMs": 16000,
+    "note": "Entry and attained hold selected from timestamped source contact sheets; timings are approximate."
+  },
+  {
+    "path": "train/Tadasana/video 10.mp4",
+    "sha256": "f47860b6f3f05a874bf42f1776cc613f73eb6f12b9a816539b62dcb458010dee",
+    "useForTraining": false,
+    "note": "Not selected for this reference revision: complete entry, movement side or repetition needs review."
+  },
+  {
+    "path": "train/Tadasana/video 11.mp4",
+    "sha256": "378490223af383154c0c26fdef6f86f1a262c8fa6bb812292432ac94740bdffd",
+    "useForTraining": true,
+    "startMs": 0,
+    "finalMs": 2000,
+    "endMs": 16000,
+    "note": "Entry and attained hold selected from timestamped source contact sheets; timings are approximate."
+  },
+  {
+    "path": "train/Tadasana/video 12.mp4",
+    "sha256": "153e1df145c36a012aebbbda7e01be8bdba3faaab2447186be017f1aaef80829",
+    "useForTraining": true,
+    "startMs": 1000,
+    "finalMs": 3000,
+    "endMs": 16000,
+    "note": "Entry and attained hold selected from timestamped source contact sheets; timings are approximate."
+  },
+  {
+    "path": "train/Tadasana/video 2.mp4",
+    "sha256": "a225c9a246584857a2f665304653d45726e39d6002d9e195e0e329990afa7494",
+    "useForTraining": false,
+    "note": "Not selected for this reference revision: complete entry, movement side or repetition needs review."
+  },
+  {
+    "path": "train/Tadasana/video 3.mp4",
+    "sha256": "65da8fa7ccc5f419e38dc9ee94454ece6e803ff648d4872db0298a1d81846733",
+    "useForTraining": true,
+    "startMs": 0,
+    "finalMs": 3000,
+    "endMs": 16000,
+    "note": "Entry and attained hold selected from timestamped source contact sheets; timings are approximate."
+  },
+  {
+    "path": "train/Tadasana/video 4.mp4",
+    "sha256": "f8cb26d0b866c1fb99a2489351842b4a38232b359e1153fdec33d7736e19e193",
+    "useForTraining": false,
+    "note": "Not selected for this reference revision: complete entry, movement side or repetition needs review."
+  },
+  {
+    "path": "train/Tadasana/video 5.mp4",
+    "sha256": "ae2a939fc8ac6c94a3f801a98f17a23f77b27c569993eddf7080d084951d7c12",
+    "useForTraining": true,
+    "startMs": 0,
+    "finalMs": 2000,
+    "endMs": 16000,
+    "note": "Entry and attained hold selected from timestamped source contact sheets; timings are approximate."
+  },
+  {
+    "path": "train/Tadasana/video 6.mp4",
+    "sha256": "16926a8b6b34e335660992f92fb08a657ee6d05e9695cea47dac879680895fc3",
+    "useForTraining": false,
+    "note": "Not selected for this reference revision: complete entry, movement side or repetition needs review."
+  },
+  {
+    "path": "train/Tadasana/video 7.mp4",
+    "sha256": "7b32ced22c0a91a02ccafb6a563526a5028a6f56129a56dfccc206f548d8dab6",
+    "useForTraining": false,
+    "note": "Not selected for this reference revision: complete entry, movement side or repetition needs review."
+  },
+  {
+    "path": "train/Tadasana/video 8.mp4",
+    "sha256": "7479f4a4af92d5193854716de85e1cb78444e72f37e8ba488e97ec2f241ab77b",
+    "useForTraining": false,
+    "note": "Not selected for this reference revision: complete entry, movement side or repetition needs review."
+  },
+  {
+    "path": "train/Tadasana/video 9.mp4",
+    "sha256": "b0125b73be21f2de8297ca5a28a8d24b9d63351f31a98e4c528444bb4f2d4353",
+    "useForTraining": true,
+    "startMs": 0,
+    "finalMs": 2000,
+    "endMs": 16000,
+    "note": "Entry and attained hold selected from timestamped source contact sheets; timings are approximate."
+  },
+  {
+    "path": "train/Trikasana/video 1.mp4",
+    "sha256": "bb649de2d6fc18870d2e04d7694fb889fdb005cbbdf0da8a6a3e95e6372de379",
+    "useForTraining": true,
+    "startMs": 0,
+    "finalMs": 2000,
+    "endMs": 8000,
+    "note": "Entry and attained hold selected from timestamped source contact sheets; timings are approximate."
+  },
+  {
+    "path": "train/Trikasana/video 10.mp4",
+    "sha256": "39bf69eae15211416eac2fc34a15f32307b0ea9630733e6efd5ddd0136d0beca",
+    "useForTraining": true,
+    "startMs": 0,
+    "finalMs": 2000,
+    "endMs": 16000,
+    "note": "Entry and attained hold selected from timestamped source contact sheets; timings are approximate."
+  },
+  {
+    "path": "train/Trikasana/video 2.mp4",
+    "sha256": "75c2effbf62da1d437467b933634a0429c81548d85ce3a8ff853b033bc8b72af",
+    "useForTraining": true,
+    "startMs": 1000,
+    "finalMs": 4000,
+    "endMs": 12000,
+    "note": "Entry and attained hold selected from timestamped source contact sheets; timings are approximate."
+  },
+  {
+    "path": "train/Trikasana/video 3.mp4",
+    "sha256": "4f3af29d62839f4a80cba5b0358c401886c4d0c23e98e3c412a550c9b3ae5d25",
+    "useForTraining": false,
+    "note": "Not selected for this reference revision: complete entry, movement side or repetition needs review."
+  },
+  {
+    "path": "train/Trikasana/video 4.mp4",
+    "sha256": "0d6f26fd612d82c672f2d0be62f4c2b597869bf476af2de3492b0a5a782d5616",
+    "useForTraining": true,
+    "startMs": 0,
+    "finalMs": 2000,
+    "endMs": 8000,
+    "note": "Entry and attained hold selected from timestamped source contact sheets; timings are approximate."
+  },
+  {
+    "path": "train/Trikasana/video 5.mp4",
+    "sha256": "811f40867c5ce0a01fe38f7e86ed0e4bcc27c149d0081d8286da8735e79df0e2",
+    "useForTraining": true,
+    "startMs": 0,
+    "finalMs": 2000,
+    "endMs": 8000,
+    "note": "Entry and attained hold selected from timestamped source contact sheets; timings are approximate."
+  },
+  {
+    "path": "train/Trikasana/video 6.mp4",
+    "sha256": "bdbeec7421351a530b3d1ece8095b8ab994a138a22af8e4a534ef9ac592ea82c",
+    "useForTraining": false,
+    "note": "Not selected for this reference revision: complete entry, movement side or repetition needs review."
+  },
+  {
+    "path": "train/Trikasana/video 7.mp4",
+    "sha256": "833ce54adb10bda516502e0601b06fc1b4665dc7ff50610043a108f65c4d3ec1",
+    "useForTraining": false,
+    "note": "Not selected for this reference revision: complete entry, movement side or repetition needs review."
+  },
+  {
+    "path": "train/Trikasana/video 8.mp4",
+    "sha256": "61bbabfd88bfa7eed28274d38b247c633962766bf95986324c91be25121a683e",
+    "useForTraining": false,
+    "note": "Not selected for this reference revision: complete entry, movement side or repetition needs review."
+  },
+  {
+    "path": "train/Trikasana/video 9.mp4",
+    "sha256": "b4c4a267fe09532aac79ca5c26e0cdb4e69e231da38f018f42c874561b3f8e8d",
+    "useForTraining": false,
+    "note": "Not selected for this reference revision: complete entry, movement side or repetition needs review."
+  },
+  {
+    "path": "train/Vrikshasana/video 1.mp4",
+    "sha256": "0f1df8656f8961416cb581723dd008c480d9defa094f6efd7a311ad968d87a02",
+    "useForTraining": true,
+    "startMs": 0,
+    "finalMs": 5000,
+    "endMs": 20000,
+    "note": "Entry and attained hold selected from timestamped source contact sheets; timings are approximate."
+  },
+  {
+    "path": "train/Vrikshasana/video 10.mp4",
+    "sha256": "183486aba1f17b326a7721b9dfd5981593a1ae955583dd6de1a9762a8eefeca0",
+    "useForTraining": false,
+    "note": "Not selected for this reference revision: complete entry, movement side or repetition needs review."
+  },
+  {
+    "path": "train/Vrikshasana/video 11.mp4",
+    "sha256": "8b20eca95f354fe08836959066fd006b2c22dc3a890939ede2a054580112f4e8",
+    "useForTraining": false,
+    "note": "Not selected for this reference revision: complete entry, movement side or repetition needs review."
+  },
+  {
+    "path": "train/Vrikshasana/video 2.mp4",
+    "sha256": "f42812a3a29cc6d9f02e9da9c546b2a4804b977e09bbfa109ee2f257211e9221",
+    "useForTraining": true,
+    "startMs": 0,
+    "finalMs": 3000,
+    "endMs": 20000,
+    "note": "Entry and attained hold selected from timestamped source contact sheets; timings are approximate."
+  },
+  {
+    "path": "train/Vrikshasana/video 3.mp4",
+    "sha256": "19ca518b985feb92510be9bb4fa9dd59d3e72e0fe231deb35a62a5a372c1d1c9",
+    "useForTraining": false,
+    "note": "Not selected for this reference revision: complete entry, movement side or repetition needs review."
+  },
+  {
+    "path": "train/Vrikshasana/video 4.mp4",
+    "sha256": "d3a64ba715d2abcdf8707c3d5301a5a93b4237d6927238a982eb0d91de865318",
+    "useForTraining": false,
+    "note": "Not selected for this reference revision: complete entry, movement side or repetition needs review."
+  },
+  {
+    "path": "train/Vrikshasana/video 5.mp4",
+    "sha256": "ffd7b03dd203ae6a6a1c651ac24b7de044455535cf9855a6726ac0610db21631",
+    "useForTraining": true,
+    "startMs": 0,
+    "finalMs": 5000,
+    "endMs": 20000,
+    "note": "Entry and attained hold selected from timestamped source contact sheets; timings are approximate."
+  },
+  {
+    "path": "train/Vrikshasana/video 6.mp4",
+    "sha256": "b47cc178284d8c05e4d2c418cfe59a303f119efcbf61cb6296e64c306205561d",
+    "useForTraining": false,
+    "note": "Not selected for this reference revision: complete entry, movement side or repetition needs review."
+  },
+  {
+    "path": "train/Vrikshasana/video 7.mp4",
+    "sha256": "4a3e7099d420224df94948754bc9b4d7e6536febce500a13307aacd80cdb027e",
+    "useForTraining": false,
+    "note": "Not selected for this reference revision: complete entry, movement side or repetition needs review."
+  },
+  {
+    "path": "train/Vrikshasana/video 8.mp4",
+    "sha256": "ea3c772c9ec13dd5f68afc1272ff2e13702fb89096782df4ed21d606d3f4a7e1",
+    "useForTraining": true,
+    "startMs": 0,
+    "finalMs": 3000,
+    "endMs": 20000,
+    "note": "Entry and attained hold selected from timestamped source contact sheets; timings are approximate."
+  },
+  {
+    "path": "train/Vrikshasana/video 9.mp4",
+    "sha256": "b2488f5998b795fd43af9cf21454df20826cfe56bf80b8924396da773829e6d4",
+    "useForTraining": false,
+    "note": "Not selected for this reference revision: complete entry, movement side or repetition needs review."
+  }
+]

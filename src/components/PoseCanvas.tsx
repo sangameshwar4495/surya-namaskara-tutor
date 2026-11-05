@@ -65,9 +65,13 @@ const CONNECTIONS: [
 export default function PoseCanvas({
   landmarks,
   sourceAspect = 3 / 4,
+  color = "#45E66B", highlightIndices = [], opacity = 1,
+  strokeWidth = 3, pointRadius = 5, minVisibility = 0.5,
 }: {
   landmarks: Landmark[];
   sourceAspect?: number;
+  color?: string; highlightIndices?: number[]; opacity?: number;
+  strokeWidth?: number; pointRadius?: number; minVisibility?: number;
 }) {
   const [size, setSize] =
     useState({
@@ -135,7 +139,7 @@ export default function PoseCanvas({
       }
 
       return landmarks.map(
-        (point) => ({
+        (point) => point.visibility >= minVisibility && Number.isFinite(point.x) && Number.isFinite(point.y) ? ({
           x:
             offsetX +
             point.x * drawWidth,
@@ -143,14 +147,14 @@ export default function PoseCanvas({
           y:
             offsetY +
             point.y * drawHeight,
-        })
+        }) : null
       );
-    }, [landmarks, size, sourceAspect]);
+    }, [landmarks, size, sourceAspect, minVisibility]);
 
   return (
     <View
       pointerEvents="none"
-      style={StyleSheet.absoluteFill}
+      style={[StyleSheet.absoluteFill, { opacity }]}
       onLayout={(event) => {
         const {
           width,
@@ -190,8 +194,8 @@ export default function PoseCanvas({
                     y1={p1.y}
                     x2={p2.x}
                     y2={p2.y}
-                    stroke="#45E66B"
-                    strokeWidth={3}
+                    stroke={highlightIndices.includes(a) || highlightIndices.includes(b) ? "#FFAB66" : color}
+                    strokeWidth={strokeWidth}
                     strokeLinecap="round"
                   />
                 );
@@ -200,17 +204,17 @@ export default function PoseCanvas({
 
             {/* Landmark points */}
             {transformed.map(
-              (point, index) => (
+              (point, index) => point ? (
                 <Circle
                   key={`point-${index}`}
                   cx={point.x}
                   cy={point.y}
-                  r={5}
+                  r={highlightIndices.includes(index) ? pointRadius + 2 : pointRadius}
                   fill="#FFFFFF"
-                  stroke="#45E66B"
+                  stroke={highlightIndices.includes(index) ? "#FFAB66" : color}
                   strokeWidth={2}
                 />
-              )
+              ) : null
             )}
           </Svg>
         )}

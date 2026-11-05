@@ -1,0 +1,6 @@
+{
+  "allVideosIntendedCorrect": true,
+  "trainTestPerformersDisjoint": true,
+  "source": "Dataset owner confirmation in this task, 2026-11-03",
+  "note": "These declarations do not verify automatically proposed movement boundaries or establish error-detection accuracy."
+}
