@@ -41,12 +41,47 @@ def select_frames(pose, segment, frames):
     return score, list(reversed(chosen))
 
 
-def extract(path, timestamps):
+DEMO_ASPECT = (3/4, 16/9)   # portrait-ish to widescreen; never narrower or wider than this
+DEMO_PAD = .12               # of the body's larger side, on every edge
+DEMO_HEAD_PAD = .10          # extra above: landmarks stop at the eyes, not the top of the head
+DEMO_FLOOR_PAD = .03         # below: the lowest points are feet/body on the floor; more pulls in
+                             # recording artefacts under the floor (e.g. a captured taskbar)
+
+
+def demo_crop(points, frame_w, frame_h):
+    """Crop (as frame fractions) that keeps the whole body in every frame of the clip.
+
+    Built from every sampled frame of the demonstrated segment, not only the checkpoints, and
+    padded generously. It is then widened toward DEMO_ASPECT by adding background (never by
+    cutting the body) and clipped to the frame."""
+    xs = [min(max(x, 0), 1)*frame_w for x, _ in points]
+    ys = [min(max(y, 0), 1)*frame_h for _, y in points]
+    x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
+    pad = DEMO_PAD*max(x1-x0, y1-y0)
+    x0, x1 = x0-pad, x1+pad
+    y0, y1 = y0-pad-DEMO_HEAD_PAD*max(x1-x0, y1-y0), y1+DEMO_FLOOR_PAD*max(x1-x0, y1-y0)
+    w, h = x1-x0, y1-y0
+    if w/h < DEMO_ASPECT[0]:
+        grow = DEMO_ASPECT[0]*h-w; x0, x1 = x0-grow/2, x1+grow/2
+    elif w/h > DEMO_ASPECT[1]:
+        grow = w/DEMO_ASPECT[1]-h; y0, y1 = y0-grow/2, y1+grow/2
+    # Clip rather than shift: shifting a window that overhangs one edge would pull in content
+    # beyond the opposite side (e.g. a captured taskbar under the floor).
+    x0, x1 = max(0, x0), min(frame_w, x1)
+    y0, y1 = max(0, y0), min(frame_h, y1)
+    return {'x': x0/frame_w, 'y': y0/frame_h, 'right': x1/frame_w, 'bottom': y1/frame_h}
+
+
+def extract(path, timestamps, segment):
     cap = cv2.VideoCapture(str(path))
     fps = cap.get(cv2.CAP_PROP_FPS)
     if not cap.isOpened() or fps <= 0:
         raise RuntimeError(f'Cannot open reference video {path}')
-    wanted, found = set(timestamps), {}
+    frame_w, frame_h = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    wanted, found, crop_points = set(timestamps), {}, []
+    # Detection is causal, so also reading to the end of the segment for the crop cannot change
+    # the landmarks found at the selected (earlier) checkpoint timestamps.
+    last = max(max(wanted), segment['endMs'])
     options = mp.tasks.vision.PoseLandmarkerOptions(
         base_options=mp.tasks.BaseOptions(model_asset_path=str(ROOT/'assets/models/pose_landmarker_lite.task')),
         running_mode=mp.tasks.vision.RunningMode.VIDEO,
@@ -61,7 +96,7 @@ def extract(path, timestamps):
                     break
                 timestamp = round(index*1000/fps)
                 index += 1
-                if timestamp > max(wanted):
+                if timestamp > last:
                     break
                 if timestamp < next_sample:
                     continue
@@ -75,6 +110,8 @@ def extract(path, timestamps):
                 if timestamp in wanted and result.pose_landmarks:
                     found[timestamp] = [dict(x=p.x*aspect, y=p.y, z=0,
                         visibility=min(p.visibility,p.presence)) for p in result.pose_landmarks[0]]
+                if segment['startMs'] <= timestamp <= segment['endMs'] and result.pose_landmarks:
+                    crop_points += [(p.x, p.y) for p in result.pose_landmarks[0] if min(p.visibility,p.presence) >= .5]
     finally:
         cap.release()
     if any(t not in found for t in wanted):
@@ -88,9 +125,7 @@ def extract(path, timestamps):
     normalized = {t:[{**p,'x':round(.5+(p['x']-(xmin+xmax)/2)*scale/.75,5),
                           'y':round(.5+(p['y']-(ymin+ymax)/2)*scale,5),
                           'visibility':round(p['visibility'],4)} for p in points] for t,points in found.items()}
-    crop = {'x':max(0,xmin/aspect-.04),'y':max(0,ymin-.04),
-            'right':min(1,xmax/aspect+.04),'bottom':min(1,ymax+.04)}
-    return [normalized[t] for t in timestamps], crop
+    return [normalized[t] for t in timestamps], demo_crop(crop_points, frame_w, frame_h)
 
 
 def export_video(name, path, segment, crop):
@@ -131,8 +166,8 @@ def main():
         score,path,timestamps = min(candidates)
         if not np.isfinite(score):
             raise RuntimeError(f'No observable reference trajectory for {pose["name"]}')
-        landmarks,crop = extract(ROOT/'dataset'/path,timestamps)
         segment=next(s for s in report['trainingSegments'] if s['path']==path)
+        landmarks,crop = extract(ROOT/'dataset'/path,timestamps,segment)
         demo=export_video(pose['name'],path,segment,crop)
         demos.append(f"  {json.dumps(pose['name'])}: {{source: require('../../assets/demos/{pose['name']}.mp4'), aspectRatio: {demo['aspectRatio']}, durationMs: {demo['durationMs']}}}")
         output['poses'].append({'name':pose['name'],'source':path,'timestamps':timestamps,

@@ -9,28 +9,31 @@ const time = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.flo
 
 // A future video/GIF/animation renderer can occupy the same visual slot and
 // supply playback state without changing the surrounding screen.
-export default function PoseMedia({ media, name, duration, visual, currentTime = 0, playing = false, onTogglePlayback }: {
-  media: PoseMediaSource; name: string; duration: number; visual?: ReactNode;
+export default function PoseMedia({ media, name, duration, visual, aspectRatio = 1.25, currentTime = 0, playing = false, onTogglePlayback }: {
+  /** Width / height of the visual slot; a video passes its own clip's ratio so it is never cropped. */
+  media?: PoseMediaSource; name: string; duration: number; visual?: ReactNode; aspectRatio?: number;
   currentTime?: number; playing?: boolean; onTogglePlayback?: () => void;
 }) {
   const elapsed = Math.max(0, Math.min(currentTime, duration));
   return <View style={[demoStyles.card, styles.card]}>
-    <View style={styles.visual} accessibilityLabel={`${name} illustration`}>
-      {visual ?? (media.kind === "image" ? <Image source={media.source} style={styles.image} resizeMode="contain" accessibilityLabel={name} /> : <PoseIllustration illustration={media.illustration} />)}
-      <TouchableOpacity accessibilityRole="button" accessibilityLabel={onTogglePlayback ? (playing ? "Pause demonstration" : "Play demonstration") : "Playback unavailable — illustration preview"} accessibilityState={{ disabled: !onTogglePlayback }} disabled={!onTogglePlayback} onPress={onTogglePlayback} style={styles.play}>
+    <View style={[styles.visual, { aspectRatio: Math.max(0.75, Math.min(1.8, aspectRatio)) }]} accessibilityLabel={visual ? `${name} demonstration video` : `${name} illustration`}>
+      {visual ?? (media?.kind === "image" ? <Image source={media.source} style={styles.image} resizeMode="contain" accessibilityLabel={name} /> : media ? <PoseIllustration illustration={media.illustration} /> : null)}
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel={onTogglePlayback ? (playing ? "Pause demonstration" : "Play demonstration") : "Playback unavailable — illustration preview"} accessibilityState={{ disabled: !onTogglePlayback }} disabled={!onTogglePlayback} onPress={onTogglePlayback} style={[styles.play, !!visual && styles.playCorner]}>
         <Feather name={playing ? "pause" : "play"} size={26} color={colors.white} />
       </TouchableOpacity>
     </View>
-    {!onTogglePlayback && <Text style={styles.note}>Illustration preview · video coming soon</Text>}
+    {!onTogglePlayback && !visual && <Text style={styles.note}>Illustration preview · video coming soon</Text>}
     <View style={styles.track}><View style={[styles.fill, { width: `${duration > 0 ? elapsed / duration * 100 : 0}%` }]} /></View>
     <View style={styles.times}><Text style={styles.time}>{time(elapsed)}</Text><Text style={styles.time}>{time(duration)}</Text></View>
   </View>;
 }
 const styles = StyleSheet.create({
   card: { padding: 18, gap: 12 },
-  visual: { aspectRatio: 1.25, backgroundColor: "#EEF3EE", borderRadius: 22, overflow: "hidden", alignItems: "center", justifyContent: "center" },
+  visual: { backgroundColor: "#EEF3EE", borderRadius: 22, overflow: "hidden", alignItems: "center", justifyContent: "center" },
   image: { width: "100%", height: "100%" },
   play: { position: "absolute", backgroundColor: colors.primary, width: 58, height: 58, borderRadius: 29, alignItems: "center", justifyContent: "center", opacity: 0.85 },
+  // Keep the control off the demonstrator's body when a video fills the frame.
+  playCorner: { right: 12, bottom: 12, width: 48, height: 48, borderRadius: 24 },
   note: { color: colors.muted, fontSize: 12, textAlign: "center" },
   track: { height: 4, borderRadius: 2, backgroundColor: colors.pale, overflow: "hidden" },
   fill: { height: "100%", backgroundColor: colors.primary },

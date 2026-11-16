@@ -157,7 +157,73 @@ function fit(name, clips) {
  * handful of values and held-out completion fell from 18/25 to 14/25 (ml/diagnose.cjs).
  * Switches exist for ablation reports.
  */
-const TRAINING_DEFAULTS={orient:true,frameCalibration:true,jointAllowance:false};
+/**
+ * Per-joint movement roles learned from correct training performers (in the common orientation).
+ * In-between movement is judged by role instead of an exact angle at each instant, because
+ * correct performers agree on WHICH joints stay still and which way the others move, but not on
+ * timing (see ml/RESULTS.md, 2026-11-10).
+ *   steady: barely changes during any correct performance -> must stay inside its learned band.
+ *   moving: consistently changes from a start level to a final level -> must not overshoot the
+ *           learned range beyond the final level, and (when every performer moved it without
+ *           turning back) must not move back toward the start by more than `maxReturn` degrees.
+ *   free:   correct performers disagree -> judged by the capped learned-path check only.
+ *   unseen: not visible in most training clips -> not judged.
+ * Bands get a leave-one-video-out margin: the most a held-out performer left the band learned
+ * from the others, kept within [ROLE_MARGIN_MIN, ROLE_MARGIN_MAX] degrees.
+ */
+// Margin floors are wider than the leave-one-video-out estimate suggests: with 4-6 similar training
+// performers, new people differ by 1-3x the in-sample spread (see RESULTS.md, 2026-11-06).
+const ROLE_MOVE_MIN=30, ROLE_STEADY_MAX=30, ROLE_RETURN_LIMIT=30, ROLE_RETURN_MARGIN=20;
+const ROLE_MARGIN_MIN=15, ROLE_MARGIN_MAX=20, ROLE_STRAIGHT=165;
+function jointProfiles(clips,k) {
+  return clips.flatMap(c=>{
+    const entry=c.entry.map(f=>f.angles[k]).filter(v=>v!==null), hold=c.hold.map(f=>f.angles[k]).filter(v=>v!==null);
+    if(entry.length<6 || hold.length<3)return [];
+    const start=median(entry.slice(0,Math.max(3,Math.ceil(entry.length*.15)))), final=median(hold);
+    const all=[...entry,...hold], direction=Math.sign(final-start)||1;
+    // Largest move back toward the start during the entry (median-of-3 smoothed, as 8 fps is noisy).
+    let best=-Infinity, back=0;
+    entry.forEach((_,i)=>{const p=direction*(median(entry.slice(Math.max(0,i-1),i+2))-start);best=Math.max(best,p);back=Math.max(back,best-p);});
+    return [{start,final,change:final-start,low:quantile(all,.05),high:quantile(all,.95),values:all,back}];
+  });
+}
+function bandWithMargin(profiles, direction=0) {
+  const band=list=>[Math.min(...list.map(p=>p.low)),Math.max(...list.map(p=>p.high))];
+  // Leave one video out: how far does a new correct performer go outside the others' band?
+  const outside=profiles.map((p,i)=>{
+    const [lo,hi]=band(profiles.filter((_,j)=>j!==i));
+    return quantile(p.values.map(v=>Math.max(0,lo-v,v-hi)),.95);
+  });
+  const margin=Math.max(ROLE_MARGIN_MIN,Math.min(ROLE_MARGIN_MAX,Math.max(...outside)));
+  const [lo,hi]=band(profiles);
+  // A moving joint's start side stays open: several recordings begin part-way through the movement,
+  // so their range misses the real starting position. The start side is covered by `maxReturn`.
+  if(direction>0)return [0, hi+margin>=ROLE_STRAIGHT?180:hi+margin];
+  if(direction<0)return [Math.max(0,lo-margin),180];
+  // Straighter than the reference is never a mistake for a nearly straight joint.
+  return [Math.max(0,lo-margin), hi+margin>=ROLE_STRAIGHT?180:hi+margin];
+}
+function jointRoles(clips) {
+  return FEATURES.map((_,k)=>{
+    const profiles=jointProfiles(clips,k);
+    if(profiles.length<Math.max(2,Math.ceil(clips.length/2)))return {role:'unseen'};
+    const changes=profiles.map(p=>p.change), typical=median(changes.map(Math.abs)), sign=Math.sign(median(changes));
+    const movers=profiles.filter(p=>Math.abs(p.change)>=15);
+    if(typical>=ROLE_MOVE_MIN && movers.filter(p=>Math.sign(p.change)===sign).length>=Math.ceil(movers.length*.75)) {
+      const agreeing=movers.filter(p=>Math.sign(p.change)===sign);
+      const back=Math.max(...profiles.map(p=>p.back));
+      // Start level from recordings showing at least half the full movement: several recordings
+      // begin part-way through, which would bias the start toward the final level.
+      const full=Math.max(...agreeing.map(p=>Math.abs(p.change)));
+      const from=median(agreeing.filter(p=>Math.abs(p.change)>=full/2).map(p=>p.start));
+      return {role:'moving',band:bandWithMargin(profiles,sign),from,to:median(profiles.map(p=>p.final)),
+        maxReturn:back<=ROLE_RETURN_LIMIT?back+ROLE_RETURN_MARGIN:null};
+    }
+    if(profiles.every(p=>p.high-p.low<=ROLE_STEADY_MAX))return {role:'steady',band:bandWithMargin(profiles)};
+    return {role:'free'};
+  });
+}
+const TRAINING_DEFAULTS={orient:true,frameCalibration:true,jointAllowance:false,jointRoles:true};
 function train(input, options={}) {
   const opts={...TRAINING_DEFAULTS,...options};
   const clips=opts.orient?orientClips(input):input;
@@ -190,7 +256,8 @@ function train(input, options={}) {
   pose.phases.forEach((p,i)=>{
     if(contributors[i].size<2)throw Error(`Insufficient calibration coverage: ${pose.name} checkpoint ${i+1}`);
     p.threshold=Math.max(1.5,Math.min(3,quantile(rms[i],.9)));
-    // No new upper clamp: jointTolerance() still caps every joint at 20 degrees.
+    // No clamp here: at runtime jointTolerance() caps every joint at 20 degrees. (Using the uncapped
+    // value for in-between stages, ContinuousPractice `learnedTolerance`, was tried and rejected.)
     if(opts.frameCalibration)p.jointThreshold=Math.max(p.threshold,quantile(worst[i],.9));
   });
   if(opts.frameCalibration && opts.jointAllowance) {
@@ -200,6 +267,7 @@ function train(input, options={}) {
   }
   const selected=selectStages(pose.phases);
   return {...pose,phases:selected.map(i=>pose.phases[i]),
+    ...(opts.jointRoles?{joints:jointRoles(clips)}:{}),
     orientation:opts.orient?{method:'left/right canonicalization to a medoid final pose',mirroredTrainingClips:clips.filter(c=>c.mirrored).length}:undefined,
     calibration:opts.frameCalibration?'leave-one-video-out: intermediate stages per-frame q90; final stage q90 over videos of the smallest allowance giving a 1.5 s hold'+(opts.jointAllowance?', per joint in degrees':''):'leave-one-video-out RMS of medians (q90)',
     stageSelection:{method:'trajectory simplification using learned spread',denseCount:pose.phases.length,selectedIndices:selected}};
@@ -230,7 +298,7 @@ function leaveOneVideoOut(training, fullFrames, {trainOptions={},practiceOptions
     group.forEach((clip,i)=>{
       const pose=train(group.filter((_,j)=>j!==i),trainOptions);
       const run=simulate(pose,fullFrames(clip.record),practiceOptions);
-      rows.push({pose:name,path:clip.record.path,complete:!!run.completed,verified:run.completed?.summary?.verified??false,completedAtMs:run.completedAtMs,
+      rows.push({pose:name,path:clip.record.path,complete:!!run.completed,correct:run.completed?.summary?.correct??false,verdict:run.completed?.summary?.verdict??'not completed',completedAtMs:run.completedAtMs,
         corrections:run.completed?.summary?.corrections.length??null});
     });
   }
@@ -247,7 +315,9 @@ function crossPose(models, records, fullFrames, practiceOptions={}) {
 }
 function tally(rows, key='pose') {
   const out={};
-  for(const r of rows){const k=r[key];out[k]??={n:0,complete:0,verified:0,withCorrections:0};out[k].n++;out[k].complete+=r.complete?1:0;out[k].verified+=r.verified?1:0;
+  for(const r of rows){const k=r[key];out[k]??={n:0,complete:0,correct:0,verdicts:{},withCorrections:0};out[k].n++;out[k].complete+=r.complete?1:0;
+    out[k].correct+=(r.correct??r.summary?.correct)?1:0;
+    const verdict=r.verdict??r.summary?.verdict??'not completed';out[k].verdicts[verdict]=(out[k].verdicts[verdict]??0)+1;
     // Every recording is an intended-correct demonstration: any spoken correction is a false alarm.
     const n=r.corrections??r.summary?.corrections?.length??0;out[k].withCorrections+=r.complete&&n>0?1:0;}
   return out;
@@ -320,7 +390,7 @@ function run(argv=process.argv.slice(2)) {
     const trackingCoverage=coverage(frames);
     return {path:record.path,pose:record.pose,protocol:'full recording',correctLabel:record.correct,
       // Same 60% complete-side coverage rule used to accept training segments.
-      scorable:trackingCoverage>=.6,trackingCoverage,complete:!!completed,verified:completed?.summary?.verified??false,
+      scorable:trackingCoverage>=.6,trackingCoverage,complete:!!completed,correct:completed?.summary?.correct??false,verdict:completed?.summary?.verdict??'not completed',
       completedAtMs:completed?.t??null,durationMs:frames.at(-1).t,summary:completed?.summary??null,
       maxCheckpoint:Math.max(...outputs.map(o=>o.phase))+1,totalCheckpoints:pose.phases.length,
       mirroredFraction:scored.length?scored.filter(o=>o.mirrored).length/scored.length:0,
@@ -343,7 +413,8 @@ function run(argv=process.argv.slice(2)) {
       crossPose:{trials:testCrossPose.length,completions:testCrossPose.filter(r=>r.complete).length,rows:testCrossPose.filter(r=>r.complete)}},
     evaluation};
   model.validation={protocol:'full recording',evaluated:evaluation.length,scorable:evaluation.filter(r=>r.scorable).length,
-    completed:evaluation.filter(r=>r.complete).length,verified:evaluation.filter(r=>r.verified).length,
+    completed:evaluation.filter(r=>r.complete).length,correct:evaluation.filter(r=>r.correct).length,
+    verdicts:evaluation.reduce((out,r)=>({...out,[r.verdict]:(out[r.verdict]??0)+1}),{}),
     unscorable:evaluation.filter(r=>!r.scorable).length,
     crossPoseCompletions:testCrossPose.filter(r=>r.complete).length,crossPoseTrials:testCrossPose.length,
     developmentCompleted:development.filter(r=>r.complete).length,developmentVideos:development.length,productionReady:false};
@@ -356,5 +427,5 @@ function run(argv=process.argv.slice(2)) {
   console.log(JSON.stringify(summary,null,2));
 }
 function average(a) {return a.length?a.reduce((s,v)=>s+v,0)/a.length:null;}
-module.exports={align,alignGroups,fit,train,prepare,selectStages,orientClips,simulate,leaveOneVideoOut,crossPose,tally,coverage,run,SEQUENCE};
+module.exports={align,alignGroups,fit,train,jointRoles,prepare,selectStages,orientClips,simulate,leaveOneVideoOut,crossPose,tally,coverage,run,SEQUENCE};
 if(require.main===module) run();

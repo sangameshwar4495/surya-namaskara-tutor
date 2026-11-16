@@ -4,26 +4,26 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Feather } from '@expo/vector-icons';
 import { Camera, useCameraDevice, useCameraFormat, useCameraPermission } from 'react-native-vision-camera';
-import { router } from 'expo-router';
+import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useCameraActive } from '../src/hooks/useCameraActive';
 import { usePoseDetection } from '../src/hooks/usePoseDetection';
 import PoseCanvas from '../src/components/PoseCanvas';
 import { FEATURES, FINAL_HOLD_MS, validateModel, type TemporalModel } from '../src/services/temporalPose';
-import { ContinuousPractice, type ContinuousResult } from '../src/services/continuousPractice';
+import { ContinuousPractice, MOVEMENT_SPEECH, type ContinuousResult } from '../src/services/continuousPractice';
+import { LiveFeedback } from '../src/services/liveFeedback';
 import { highlightedJoints, MOVEMENT_SETUP } from '../src/services/learnedGuidance';
 import { useCoachSpeech } from '../src/hooks/useCoachSpeech';
 import MovementDemo from '../src/components/MovementDemo';
 import { DATASET_DEMOS, DEMO_MODEL_KEY } from '../src/data/datasetDemos';
+import { findMovementPose } from '../src/data/movementPoses';
 import artifact from '../src/data/temporalModel.json';
 
-const model: TemporalModel = artifact;
+// JSON imports type string fields loosely (e.g. joint roles); the model is validated at runtime below.
+const model = artifact as unknown as TemporalModel;
 let modelError = '';
 try { validateModel(model); } catch { modelError = 'Model file is invalid. Rebuild it with the training pipeline.'; }
 const JOINTS = [[23,25,27],[24,26,28],[11,13,15],[12,14,16],[13,11,23],[14,12,24],[11,23,25],[12,24,26]];
 const COUNTDOWN_MS = 3000;
-/** Pause after the spoken summary before moving on; longer when the summary must be read. */
-const ADVANCE_AFTER_SPEECH_MS = 3000;
-const ADVANCE_AFTER_READING_MS = 8000;
 /** Some TTS engines never report completion; never let that block practice. */
 const INTRO_FALLBACK_MS = 12000;
 
@@ -38,7 +38,8 @@ export default function DatasetPractice() {
   const focused = useCameraActive();
   const speech = useCoachSpeech(focused);
   const { poseResult, frameProcessor, cameraViewLayoutChangeHandler } = usePoseDetection();
-  const [index, setIndex] = useState(0);
+  // One pose per visit, chosen on the selection screen; completing it never moves to another pose.
+  const selected = findMovementPose(useLocalSearchParams<{ pose?: string }>().pose);
   const [attempt, setAttempt] = useState(0);
   const [paused, setPaused] = useState(true);
   const [completed, setCompleted] = useState(false);
@@ -46,17 +47,12 @@ export default function DatasetPractice() {
   const [cameraKey, setCameraKey] = useState(0);
   const [cameraReady, setCameraReady] = useState(false);
   const [feedback, setFeedback] = useState<ContinuousResult | null>(null);
-  const [advanceAt, setAdvanceAt] = useState<number | null>(null);
   const [stage, setStage] = useState({ width: 0, height: 0 });
   const [now, setNow] = useState(performance.now());
   const readyAt = useRef(Infinity);
   const holdAnnounced = useRef(false);
-  // Identifies the completion allowed to auto-advance; Stay/Repeat/Replay/navigation revoke it,
-  // so a narration cancelled by those actions can never schedule a late advance.
-  const advanceToken = useRef(0);
-  const name = model.sequence[index];
-  const isLast = index === model.sequence.length - 1;
-  const nextName = model.sequence[index + 1];
+  const liveFeedback = useRef(new LiveFeedback());
+  const name: string = selected?.name ?? '';
   const pose = model.poses.find(p => p.name === name);
   const tracker = useMemo(() => pose ? new ContinuousPractice(pose) : null, [pose, attempt]);
   const demo = model.referenceKey === DEMO_MODEL_KEY ? DATASET_DEMOS[name] : undefined;
@@ -70,8 +66,8 @@ export default function DatasetPractice() {
     let cancelled = false;
     readyAt.current = Infinity;
     holdAnnounced.current = false;
-    advanceToken.current++;
-    tracker?.reset(); setFeedback(null); setCompleted(false); setAdvanceAt(null);
+    liveFeedback.current = new LiveFeedback();
+    tracker?.reset(); setFeedback(null); setCompleted(false);
     const beginCountdown = () => {
       if (!cancelled && readyAt.current === Infinity) readyAt.current = performance.now() + COUNTDOWN_MS;
     };
@@ -88,8 +84,7 @@ export default function DatasetPractice() {
     return () => clearInterval(id);
   }, [active]);
 
-  const summarySpeech = useCallback((result: ContinuousResult) =>
-    `${result.summary?.speech ?? ''} ${isLast ? 'That completes your practice.' : `Next: ${nextName}.`}`, [isLast, nextName]);
+  const summarySpeech = (result: ContinuousResult) => `${result.summary?.speech ?? ''} That completes your practice.`;
 
   useEffect(() => {
     if (!active || !tracker || completed || poseResult.receivedAt <= readyAt.current || performance.now() - poseResult.receivedAt > 500) return;
@@ -101,31 +96,27 @@ export default function DatasetPractice() {
       })) angles[key] = null;
     });
     const next = tracker.update(angles, poseResult.receivedAt);
+    const correction = liveFeedback.current.update(next, poseResult.receivedAt);
     setFeedback(next);
     if (next.status === 'complete') {
       setCompleted(true);
-      // Move on automatically once the review has been heard (or had time to be read).
-      const token = ++advanceToken.current;
-      void speech.speak(summarySpeech(next)).then(spoken => {
-        if (!isLast && token === advanceToken.current)
-          setAdvanceAt(performance.now() + (spoken ? ADVANCE_AFTER_SPEECH_MS : ADVANCE_AFTER_READING_MS));
-      });
-    } else if (next.heldMs >= 250 && !holdAnnounced.current) {
+      // Stay on this pose; the person chooses to repeat it or return to pose selection.
+      void speech.speak(summarySpeech(next));
+    } else if (correction) {
+      void speech.speak(correction);
+    } else if (next.status === 'matching' && next.heldMs >= 250 && !holdAnnounced.current) {
       holdAnnounced.current = true;
       void speech.speak('Hold steady and breathe.');
     }
-  }, [active, tracker, poseResult, completed, speech.speak, summarySpeech, isLast]);
+  }, [active, tracker, poseResult, completed, speech.speak]);
 
-  const cancelAdvance = useCallback(() => { advanceToken.current++; setAdvanceAt(null); }, []);
-  const goTo = useCallback((target: number, start: boolean) => {
-    cancelAdvance(); speech.stop(); setFeedback(null); setCompleted(false);
-    setIndex(target); setAttempt(v => v + 1); setPaused(!start);
-  }, [speech.stop, cancelAdvance]);
-  useEffect(() => {
-    if (advanceAt !== null && completed && now >= advanceAt) goTo(index + 1, true);
-  }, [advanceAt, completed, now, index, goTo]);
+  const restart = useCallback((start: boolean) => {
+    speech.stop(); setFeedback(null); setCompleted(false);
+    setAttempt(v => v + 1); setPaused(!start);
+  }, [speech.stop]);
+  const chooseAnotherPose = useCallback(() => { speech.stop(); router.dismissTo('/movement-practice'); }, [speech.stop]);
 
-  const stale = now - poseResult.receivedAt > 1000;
+  const stale = now - poseResult.receivedAt > 500;
   const fresh = previewOn && now - poseResult.receivedAt <= 500;
   const introducing = active && readyAt.current === Infinity;
   const countingDown = active && !introducing && now < readyAt.current;
@@ -138,22 +129,17 @@ export default function DatasetPractice() {
     : countingDown ? 'Get ready.'
     : stale ? 'Step into view — keep your whole body visible.'
     : feedback?.message ?? 'Begin with the demonstration.';
-  const secondsToAdvance = advanceAt === null ? null : Math.max(1, Math.ceil((advanceAt - now) / 1000));
 
   // A pose result also proves frames are flowing, in case a device never reports initialization.
   const cameraState = !hasPermission ? 'permission' : !device ? 'missing' : cameraError ? 'error' : !(cameraReady || fresh) ? 'loading' : 'ready';
   const cameraUsable = cameraState === 'ready' || cameraState === 'loading';
 
+  if (!selected) return <Redirect href="/movement-practice" />;
   return <View style={[styles.screen, expanded && styles.screenExpanded, { paddingTop: insets.top }]}>
     <StatusBar hidden={expanded} style={expanded ? 'light' : 'dark'} />
     {!expanded && <View style={styles.header}>
       <View style={styles.row}>
-        <IconButton icon="x" label="Exit practice" onPress={() => router.back()} />
-        <View style={styles.stepper}>
-          <IconButton icon="chevron-left" label="Previous pose" disabled={index === 0} onPress={() => goTo(index - 1, false)} />
-          <Text style={styles.step}>{index + 1} / {model.sequence.length}</Text>
-          <IconButton icon="chevron-right" label="Next pose" disabled={isLast} onPress={() => goTo(index + 1, false)} />
-        </View>
+        <IconButton icon="arrow-left" label="Back to pose selection" onPress={chooseAnotherPose} />
       </View>
       <Text style={styles.title} accessibilityRole="header">{name}</Text>
       <Text style={styles.description}>{MOVEMENT_SETUP[name]}</Text>
@@ -198,36 +184,31 @@ export default function DatasetPractice() {
             disabled={!pose || !!modelError || !cameraUsable} />
           <IconButton icon={speech.enabled ? 'volume-2' : 'volume-x'} label={speech.enabled ? 'Mute voice' : 'Turn voice on'} onPress={() => speech.setEnabled(v => !v)} />
         </View>
-        <Text style={styles.note}>Experimental guidance, not medical advice.</Text>
       </> : completed && feedback?.summary ? <>
         <View style={styles.row}>
-          <Text style={styles.panelTitle}>{isLast ? 'Practice complete' : `${name} complete`}</Text>
+          <Text style={styles.panelTitle}>{`${name} complete`}</Text>
           <View style={styles.actions}>
             <IconButton icon="play-circle" label="Replay spoken summary" disabled={!speech.enabled}
-              onPress={() => { cancelAdvance(); void speech.speak(summarySpeech(feedback)); }} />
+              onPress={() => { void speech.speak(summarySpeech(feedback)); }} />
             <IconButton icon={speech.enabled ? 'volume-2' : 'volume-x'} label={speech.enabled ? 'Mute voice' : 'Turn voice on'} onPress={() => speech.setEnabled(v => !v)} />
           </View>
         </View>
         <ScrollView style={styles.summary} contentContainerStyle={{ gap: 6 }}>
-          {feedback.summary.corrections.length ? feedback.summary.corrections.map((text, i) => <Text key={i} style={styles.summaryText}>• {text}</Text>)
-            : <Text style={styles.summaryText}>{feedback.summary.verified ? 'Your movement matched the reference throughout.' : 'Final pose held.'}</Text>}
+          <Text style={styles.summaryText}>{MOVEMENT_SPEECH[feedback.summary.verdict]}</Text>
+          {feedback.summary.corrections.map((text, i) => <Text key={i} style={styles.summaryText}>• {text}</Text>)}
           {feedback.summary.missing.length > 0 && <Text style={styles.summaryMuted}>Part of the movement was not clearly seen.</Text>}
           {feedback.summary.trackingInterrupted && <Text style={styles.summaryMuted}>The camera briefly lost sight of you.</Text>}
         </ScrollView>
-        {secondsToAdvance !== null && <Text style={styles.advance} accessibilityLiveRegion="polite">Next: {nextName} in {secondsToAdvance} s</Text>}
         <View style={styles.row}>
-          <Button label="Repeat" icon="rotate-ccw" secondary onPress={() => goTo(index, true)} />
-          {isLast ? <Button label="Done" icon="check" onPress={() => { speech.stop(); router.back(); }} />
-            : advanceAt === null ? <Button label={`Next: ${nextName}`} icon="arrow-right" onPress={() => goTo(index + 1, true)} />
-            : <Button label="Stay here" icon="pause" secondary onPress={() => { cancelAdvance(); speech.stop(); }} />}
+          <Button label="Repeat" icon="rotate-ccw" secondary onPress={() => restart(true)} />
+          <Button label="Choose another pose" icon="grid" onPress={chooseAnotherPose} />
         </View>
-        {isLast && <Button label="Start again from the first pose" secondary onPress={() => goTo(0, false)} />}
       </> : <>
         <View style={styles.row}>
-          <Text style={styles.panelTitle} numberOfLines={1}>{name} <Text style={styles.step}>{index + 1}/{model.sequence.length}</Text></Text>
+          <Text style={styles.panelTitle} numberOfLines={1}>{name}</Text>
           <View style={styles.actions}>
             <IconButton icon={speech.enabled ? 'volume-2' : 'volume-x'} label={speech.enabled ? 'Mute voice' : 'Turn voice on'} onPress={() => speech.setEnabled(v => !v)} />
-            <IconButton icon="rotate-ccw" label="Restart this pose" onPress={() => goTo(index, true)} />
+            <IconButton icon="rotate-ccw" label="Restart this pose" onPress={() => restart(true)} />
             <IconButton icon="pause" label="Pause and leave full screen" onPress={() => { speech.stop(); setPaused(true); }} />
           </View>
         </View>
@@ -266,9 +247,7 @@ const styles = StyleSheet.create({
   screenExpanded: { backgroundColor: '#000' },
   header: { paddingHorizontal: 16, paddingBottom: 10, gap: 4 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  stepper: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   actions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  step: { color: '#52665e', fontSize: 13, fontWeight: '600' },
   title: { fontSize: 26, fontWeight: '700', color: '#172923' },
   description: { color: '#53665C', fontSize: 15, lineHeight: 21 },
   stage: { backgroundColor: '#111', overflow: 'hidden', alignSelf: 'center' },
@@ -288,7 +267,6 @@ const styles = StyleSheet.create({
   summary: { maxHeight: 150 },
   summaryText: { color: '#172923', fontSize: 15, lineHeight: 21 },
   summaryMuted: { color: '#52665e', fontSize: 14, lineHeight: 20 },
-  advance: { color: '#276652', fontWeight: '700', textAlign: 'center' },
   note: { color: '#52665e', fontSize: 12, textAlign: 'center' },
   button: { flex: 1, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: '#276652', paddingVertical: 14, paddingHorizontal: 12, borderRadius: 14 },
   secondary: { backgroundColor: '#E4EBE3' },

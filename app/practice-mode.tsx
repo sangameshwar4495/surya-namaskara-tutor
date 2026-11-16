@@ -24,12 +24,11 @@ export default function PracticeModeScreen() {
           </Text>
         </View>
 
-        {/* Full Sequence Demo */}
+        {/* Pose Demos */}
         <PracticeCard
           icon="play-circle"
-          badge="4 MIN"
-          title="View full sequence demo"
-          description="Watch all 12 poses flow together before you begin."
+          title="View pose demos"
+          description="Watch a demonstration video for each pose before you begin."
           onPress={() => {
             router.push("/demo");
           } }
@@ -37,16 +36,14 @@ export default function PracticeModeScreen() {
 
         <PracticeCard
           icon="activity"
-          badge="EXPERIMENTAL"
-          title="Learned movement practice"
-          description="Follow a short demonstration through five poses with live corrections."
-          onPress={() => router.push("/dataset-practice")}
+          title="Practice yoga poses"
+          description="Choose a pose and follow a short demonstration with live corrections."
+          onPress={() => router.push("/movement-practice")}
         />
 
         {/* Guided Practice */}
         <PracticeCard
           icon="user"
-          badge="GUIDED"
           title="Step-by-step practice"
           description="Practice all 12 poses with camera guidance, timed holds and a clearly marked manual step."
           onPress={() => {
@@ -60,13 +57,11 @@ export default function PracticeModeScreen() {
 
 function PracticeCard({
   icon,
-  badge,
   title,
   description,
   onPress,
 }: {
   icon: keyof typeof Feather.glyphMap;
-  badge: string;
   title: string;
   description: string;
   onPress: () => void;
@@ -84,10 +79,6 @@ function PracticeCard({
             size={28}
             color="rgb(39, 102, 82)"
           />
-        </View>
-
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>{badge}</Text>
         </View>
       </View>
 
@@ -173,19 +164,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#DCEBE4",
     justifyContent: "center",
     alignItems: "center",
-  },
-
-  badge: {
-    backgroundColor: "#FFF0D9",
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 18,
-  },
-
-  badgeText: {
-    color: "#E9952C",
-    fontSize: 13,
-    fontWeight: "800",
   },
 
   cardTitle: {

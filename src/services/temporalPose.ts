@@ -12,11 +12,21 @@ export type Features = (number | null)[];
  * `tolerance` (final stage) is a held-out per-joint allowance in degrees.
  */
 export interface Phase { mean: Features; scale: number[]; threshold: number; jointThreshold?: number; tolerance?: number[] }
-export interface TemporalPose { name: string; phases: Phase[]; trainingVideos: number }
+/**
+ * Learned per-joint role during the movement (see `jointRoles` in ml/pipeline.cjs). `band` is the
+ * allowed angle range in degrees. A moving joint goes from `from` towards `to`; when `maxReturn` is
+ * set it must not move back toward `from` by more than that many degrees. Moving joints are not
+ * checked against the timing of the rest of the body (see ml/RESULTS.md, 2026-11-11).
+ */
+export type JointRole =
+  | { role: 'steady'; band: [number, number] }
+  | { role: 'moving'; band: [number, number]; from: number; to: number; maxReturn: number | null }
+  | { role: 'free' } | { role: 'unseen' };
+export interface TemporalPose { name: string; phases: Phase[]; trainingVideos: number; joints?: JointRole[] }
 export interface TemporalModel {
   version: number; reviewed: boolean; features: string[]; poses: TemporalPose[]; sequence: string[];
   referenceKey?: string;
-  validation?: { evaluated: number; completed: number; verified?: number; unscorable: number; productionReady: boolean };
+  validation?: { evaluated: number; completed: number; correct?: number; verdicts?: Record<string, number>; unscorable: number; productionReady: boolean };
 }
 export interface TemporalResult {
   status: 'tracking' | 'adjust' | 'matching' | 'complete';
@@ -27,10 +37,12 @@ export interface JointError {
   joint: typeof FEATURES[number]; degrees: number; signedDegrees: number;
   actual: number; target: number; tolerance: number; outsideTolerance: boolean;
 }
-/** Learned spread, with a cap so a highly variable reference cannot excuse a large error. */
-export function jointTolerance(phase: Phase, index: number): number {
+/** Default upper bound, in degrees, so a highly variable reference cannot excuse a large error. */
+export const TOLERANCE_CAP = 20;
+/** Learned spread with a 5-degree floor and an upper cap (the default cap unless a caller opts out). */
+export function jointTolerance(phase: Phase, index: number, cap = TOLERANCE_CAP): number {
   const learned = phase.tolerance?.[index] ?? phase.scale[index] * (phase.jointThreshold ?? phase.threshold);
-  return Math.max(5, Math.min(20, learned));
+  return Math.max(5, Math.min(cap, learned));
 }
 /** Left/right feature pairs: [leftKnee,rightKnee], [leftElbow,rightElbow], ... */
 const MIRROR_INDEX = [1, 0, 3, 2, 5, 4, 7, 6];
@@ -67,16 +79,23 @@ export function validateModel(value: TemporalModel): void {
           (phase.jointThreshold !== undefined && (!Number.isFinite(phase.jointThreshold) || phase.jointThreshold <= 0)) ||
           (phase.tolerance !== undefined && (phase.tolerance.length !== FEATURES.length || !phase.tolerance.every(v => Number.isFinite(v) && v > 0)))) throw new Error('Invalid phase statistics');
     }
+    if (pose.joints !== undefined && (pose.joints.length !== FEATURES.length || !pose.joints.every(validRole))) throw new Error('Invalid joint roles');
   }
+}
+const angle = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 180;
+function validRole(j: JointRole): boolean {
+  if (j.role === 'free' || j.role === 'unseen') return true;
+  if (!Array.isArray(j.band) || j.band.length !== 2 || !j.band.every(angle) || j.band[0] > j.band[1]) return false;
+  return j.role === 'steady' || (angle(j.from) && angle(j.to) && (j.maxReturn === null || (Number.isFinite(j.maxReturn) && j.maxReturn > 0)));
 }
 export function hasSide(values: Features): boolean {
   return [[0,2,4,6],[1,3,5,7]].some(indices => indices.every(i => typeof values[i] === 'number' && Number.isFinite(values[i]) && values[i]! >= 0 && values[i]! <= 180));
 }
-export function phaseError(values: Features, phase: Phase) {
+export function phaseError(values: Features, phase: Phase, cap = TOLERANCE_CAP) {
   const jointErrors = values.flatMap((v, i) => v !== null && phase.mean[i] !== null && Number.isFinite(v)
     ? [{ joint: FEATURES[i], degrees: Math.abs(v - phase.mean[i]!), scale: phase.scale[i],
-      signedDegrees: v - phase.mean[i]!, actual: v, target: phase.mean[i]!, tolerance: jointTolerance(phase,i),
-      outsideTolerance: Math.abs(v - phase.mean[i]!) > jointTolerance(phase,i) }] : []);
+      signedDegrees: v - phase.mean[i]!, actual: v, target: phase.mean[i]!, tolerance: jointTolerance(phase,i,cap),
+      outsideTolerance: Math.abs(v - phase.mean[i]!) > jointTolerance(phase,i,cap) }] : []);
   const observable = hasSide(values.map((v,i)=>phase.mean[i] === null ? null : v));
   return {
     observable,

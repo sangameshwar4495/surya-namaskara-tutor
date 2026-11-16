@@ -20,7 +20,7 @@ export default function WelcomeScreen() {
         <Text style={styles.title}>Yoga Pose Correction</Text>
 
         <Text style={styles.subtitle}>
-          Improve your Surya Namaskar with real-time AI posture guidance.
+          Improve your yoga poses with real-time AI posture guidance.
         </Text>
 
         <TouchableOpacity

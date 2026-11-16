@@ -1,3 +1,134 @@
+# Development evaluation — learned joint roles for in-between movement (2026-11-10)
+
+The 2026-11-09 update below is **rejected**. Removing the 20° cap let in-between movement use the
+learned tolerances, but many of those exceed the whole 0–180° angle range, so almost any in-between
+movement passed and the verdict depended only on the final pose. It reduced false corrections but
+stopped catching mistakes (row "lenient" below). It remains available only as an ablation switch.
+
+The final-pose check is unchanged throughout. Learned stages are byte-identical; the model gains a
+per-pose `joints` array, so its reference key changed and references/demos were re-exported
+(skeletons and clips byte-identical).
+
+## What changed
+
+1. **Cap restored.** In-between frames use the 20° per-joint cap again (`learnedTolerance` off).
+2. **Capped learned path kept.** In-between frames are compared with the whole learned path
+   (stages and interpolated points), within the cap.
+3. **Learned joint roles** (`jointRoles` in `ml/pipeline.cjs`, checked in `continuousPractice.ts`).
+   Correct performers agree on *which* joints stay still and which way the others move, not on
+   timing, so joints are judged by role:
+   * **steady** (barely changes in any correct performance): must stay in its learned band;
+   * **moving** (consistently changes start → final): must not overshoot beyond the final level,
+     and where every training performer moved it without turning back, must not move back toward
+     the start by more than the learned amount. A full return to the start is a restart, not a
+     mistake; a part-way return is reported when the attempt completes;
+   * **free** (performers disagree): capped learned-path check; **unseen**: not judged.
+
+   Bands get a leave-one-video-out margin with floors of 15° (bands) and 20° (returns), because
+   4–6 similar training performers understate how much new people differ (see 2026-11-06).
+   Nearly straight joints are never corrected for being straighter than the reference.
+4. **Setup is not reviewed.** With roles, nothing is recorded for the review until every visible
+   joint satisfies its role at once. Joint angles cannot tell kneeling upright from a lifted cobra,
+   so test performers kneeling on the mat had been told to straighten the knee. Live guidance is
+   still shown.
+5. Frames recognized as the final stage but not yet within the final tolerance are judged as
+   movement (recognition ignores the worst-fitting joints, e.g. arms dropping back).
+
+## Results — four offered poses
+
+Development = nested leave-one-video-out on training videos. "Caught" = injected mistake (middle of
+the entry movement, held-out correct recording) and the review names the body part and does not
+call the attempt correct (`node ml/diagnose.cjs --mistakes --rows`). Injected mistakes are a proxy:
+no recordings of real incorrect performances exist.
+
+| | Strict (before 11-09) | Lenient (11-09, rejected) | **Roles (now)** |
+| --- | ---: | ---: | ---: |
+| Dev: correct performances judged correct | 0/18 | 10/18 | **12/18** |
+| Dev: correct performances given a correction | 15/18 | 3/18 | **2/18** |
+| Dev caught: knees bent 45° | 15/21 | 10/21 | **17/21** |
+| Dev caught: hips bent 40° | 14/21 | 10/21 | **17/21** |
+| Dev caught: elbows bent 50° | 13/21 | 3/21 | 6/21 |
+| Dev caught: moves part-way back | 17/21 | 4/21 | 8/21 |
+| Test: complete | 9/12 | 9/12 | 9/12 |
+| Test: completions judged correct | 0/9 | 5/9 | **5/9** |
+| Test: completions given a correction | 8/9 | 3/9 | 3/9 |
+| Cross-pose completions (test) | 0/60 | 0/60 | 0/60 |
+
+21 recordings per mistake; 3 never complete even unmodified, so 18 is the most that can be caught.
+
+Remaining test corrections, checked against the video frames: Vrikshasana 13 raises the arms
+overhead mid-way (outside every reference, which keep the palms at the chest); Trikasana 11 folds
+deeper than any training performer (the final-pose check also rejects that depth until 21.9 s);
+Bhujasana 15 holds the upper arm further forward than the references.
+
+## Known gaps
+
+* **Bent elbows mid-movement in Tadasana and Bhujasana are not corrected.** Correct performers bend
+  the elbows during Tadasana's arm raise (down to ~63°), and Bhujasana's protocol lifts from bent
+  elbows (including Sarala Bhujangasana's lift–lower–lift), so the data cannot separate mistakes
+  from normal movement. The final pose still requires the elbows to match.
+* **Moving back is only checked where all training performers moved without turning back**
+  (Tadasana arms, Trikasana arm and hips, Vrikshasana left elbow). Vrikshasana's lifted leg and
+  Bhujasana's lift are not checked for direction.
+* Part-way-back detection is understated by the benchmark: several training recordings begin
+  part-way through the movement, so their injected reversal is small or lands at the start.
+* Missed real mistakes still cannot be measured without labeled incorrect recordings. A torso
+  orientation feature (angle of the trunk to vertical) would remove the kneeling/cobra ambiguity;
+  it requires re-extracting the dataset.
+
+# Development evaluation — in-between movement acceptance update (2026-11-09) — REJECTED, see 2026-11-10
+
+The final-pose check and all completion numbers below are unchanged. This update changes only
+how **in-between movement** is judged and summarized (`src/services/continuousPractice.ts`).
+The model file's learned poses and reference key are byte-identical; only its `validation`
+summary was regenerated (`node ml/pipeline.cjs --draft`).
+
+## Why correct performances still received corrections
+
+Every recording is a correct demonstration, yet 15/18 completed development videos and 8/9
+completed test videos of the four offered poses received a correction. A leave-one-video-out
+trace showed these were not small deviations: 23–127° on a joint, almost all during the 2–3 s
+entry movement. Two mechanisms:
+
+1. **The 20° cap overrode the learned in-between tolerance.** Correct held-out performers
+   differ from the averaged in-between path by far more than 20° (the learned per-frame
+   tolerances are 50–400° for many arm joints), so normal variation was reported as a mistake.
+2. **Correctness was judged only against the recognized stage.** Recognition deliberately
+   ignores the worst-fitting 25% of joints, which in Tadasana are exactly the moving arms, so a
+   frame on the learned path could be compared with the wrong stage.
+
+## What changed (runtime switches, all default on; rows 7–9 of `node ml/diagnose.cjs`)
+
+| Change | Switch |
+| --- | --- |
+| In-between stages use the tolerance learned from correct training performers (leave-one-video-out, unchanged calibration) without the 20° cap. The 5° floor stays; the **final pose keeps the 20° cap**. | `learnedTolerance` |
+| In-between frames are judged against the whole learned path: every stage and interpolated points between consecutive stages. | `pathTolerance` |
+| Each in-between frame is recorded in the movement section where it fits the path best, so quickly traversed sections are not reported as unseen. | `pathCoverage` |
+| New summary verdict `correct`: final pose held, at least half of the movement seen, nothing seen outside the learned range. `verified` (whole movement seen, no tracking loss) is unchanged in meaning. | — |
+
+## Results (four offered poses; Padamasana excluded, unchanged at 0/4 development completions)
+
+| | Previous | New |
+| --- | ---: | ---: |
+| Development (nested leave-one-video-out, training only): complete | 18/21 | 18/21 |
+| Development: completions judged correct | 0/18 | 10/18 |
+| Development: completions with ≥1 false correction | 15/18 | 3/18 |
+| Test (12 recordings): complete | 9/12 | 9/12 |
+| Test: completions judged correct | 0/9 | 5/9 |
+| Test: completions with ≥1 false correction / corrections given | 8/9 / 39 | 3/9 / 5 |
+| Cross-pose completions, development / test | 0/224 / 0/60 | 0/224 / 0/60 |
+
+Choices were made on training data only; the test set was evaluated once afterwards (it was
+also inspected in earlier development, so it is not a pristine benchmark).
+
+## Limits
+
+* **Missed mistakes cannot be measured**: there are still no labeled incorrect performances.
+  Wider in-between tolerances mean in-between deviations on joints that vary a lot among correct
+  performers (often the arms) are no longer reported. Joints that vary little (e.g. knees in
+  Tadasana) keep tight limits, and the final pose is checked exactly as before.
+* With 4–6 performers per pose, the learned spreads are themselves uncertain.
+
 # Development evaluation — final-hold diagnosis update (2026-11-06)
 
 This is an experimental one-class movement-reference model (DTW-aligned joint-angle

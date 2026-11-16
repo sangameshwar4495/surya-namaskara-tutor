@@ -216,6 +216,76 @@
         }
       ],
       "trainingVideos": 6,
+      "joints": [
+        {
+          "role": "steady",
+          "band": [
+            130.26070263437066,
+            180
+          ]
+        },
+        {
+          "role": "steady",
+          "band": [
+            127.20435000721531,
+            180
+          ]
+        },
+        {
+          "role": "moving",
+          "band": [
+            0,
+            180
+          ],
+          "from": 75.09610854958562,
+          "to": 158.9697371291738,
+          "maxReturn": null
+        },
+        {
+          "role": "moving",
+          "band": [
+            0,
+            180
+          ],
+          "from": 103.97669726270938,
+          "to": 157.53872236073428,
+          "maxReturn": null
+        },
+        {
+          "role": "moving",
+          "band": [
+            0,
+            180
+          ],
+          "from": 39.13472460910375,
+          "to": 175.80152619468643,
+          "maxReturn": 25.997169026183883
+        },
+        {
+          "role": "moving",
+          "band": [
+            0,
+            180
+          ],
+          "from": 49.17102846081444,
+          "to": 170.98869009013546,
+          "maxReturn": 31.279883655968092
+        },
+        {
+          "role": "steady",
+          "band": [
+            143.62715108121765,
+            180
+          ]
+        },
+        {
+          "role": "steady",
+          "band": [
+            144.534940768123,
+            180
+          ]
+        }
+      ],
       "orientation": {
         "method": "left/right canonicalization to a medoid final pose",
         "mirroredTrainingClips": 1
@@ -361,6 +431,76 @@
         }
       ],
       "trainingVideos": 4,
+      "joints": [
+        {
+          "role": "moving",
+          "band": [
+            20.92776505743712,
+            180
+          ],
+          "from": 154.9822033666163,
+          "to": 57.22119914782626,
+          "maxReturn": null
+        },
+        {
+          "role": "steady",
+          "band": [
+            120.60811587094531,
+            180
+          ]
+        },
+        {
+          "role": "moving",
+          "band": [
+            56.832617021647096,
+            180
+          ],
+          "from": 146.9036152280477,
+          "to": 83.40111167951505,
+          "maxReturn": 47.462818860691556
+        },
+        {
+          "role": "moving",
+          "band": [
+            64.86855914550662,
+            180
+          ],
+          "from": 149.6091702000947,
+          "to": 84.89718193713937,
+          "maxReturn": null
+        },
+        {
+          "role": "steady",
+          "band": [
+            0,
+            80.10033023305456
+          ]
+        },
+        {
+          "role": "steady",
+          "band": [
+            6.969848248526329,
+            76.18694913049032
+          ]
+        },
+        {
+          "role": "moving",
+          "band": [
+            52.06886789259157,
+            180
+          ],
+          "from": 173.39894107998407,
+          "to": 109.3956673591945,
+          "maxReturn": null
+        },
+        {
+          "role": "steady",
+          "band": [
+            129.69898447162342,
+            180
+          ]
+        }
+      ],
       "orientation": {
         "method": "left/right canonicalization to a medoid final pose",
         "mirroredTrainingClips": 3
@@ -503,6 +643,72 @@
         }
       ],
       "trainingVideos": 5,
+      "joints": [
+        {
+          "role": "steady",
+          "band": [
+            128.4365892950522,
+            180
+          ]
+        },
+        {
+          "role": "steady",
+          "band": [
+            129.9959547760452,
+            180
+          ]
+        },
+        {
+          "role": "free"
+        },
+        {
+          "role": "steady",
+          "band": [
+            131.06123284690483,
+            180
+          ]
+        },
+        {
+          "role": "moving",
+          "band": [
+            0,
+            158.78256426756795
+          ],
+          "from": 56.4085020256516,
+          "to": 117.81705444531211,
+          "maxReturn": null
+        },
+        {
+          "role": "moving",
+          "band": [
+            0,
+            114.02829473805357
+          ],
+          "from": 34.221470562760956,
+          "to": 90.30172275177986,
+          "maxReturn": 24.472732856949865
+        },
+        {
+          "role": "moving",
+          "band": [
+            75.87187411815705,
+            180
+          ],
+          "from": 157.95913475115455,
+          "to": 123.75190645504973,
+          "maxReturn": 40.957221241967844
+        },
+        {
+          "role": "moving",
+          "band": [
+            59.511365794251276,
+            180
+          ],
+          "from": 152.21546626690665,
+          "to": 82.43189358536789,
+          "maxReturn": 29.338704465293944
+        }
+      ],
       "orientation": {
         "method": "left/right canonicalization to a medoid final pose",
         "mirroredTrainingClips": 1
@@ -621,6 +827,47 @@
         }
       ],
       "trainingVideos": 6,
+      "joints": [
+        {
+          "role": "unseen"
+        },
+        {
+          "role": "steady",
+          "band": [
+            140.8089865315094,
+            180
+          ]
+        },
+        {
+          "role": "unseen"
+        },
+        {
+          "role": "moving",
+          "band": [
+            0,
+            180
+          ],
+          "from": 98.86633927826323,
+          "to": 165.29360059828176,
+          "maxReturn": null
+        },
+        {
+          "role": "unseen"
+        },
+        {
+          "role": "steady",
+          "band": [
+            10.98721660108837,
+            87.07478745080954
+          ]
+        },
+        {
+          "role": "unseen"
+        },
+        {
+          "role": "free"
+        }
+      ],
       "orientation": {
         "method": "left/right canonicalization to a medoid final pose",
         "mirroredTrainingClips": 0
@@ -714,6 +961,32 @@
         }
       ],
       "trainingVideos": 4,
+      "joints": [
+        {
+          "role": "free"
+        },
+        {
+          "role": "free"
+        },
+        {
+          "role": "free"
+        },
+        {
+          "role": "free"
+        },
+        {
+          "role": "free"
+        },
+        {
+          "role": "free"
+        },
+        {
+          "role": "free"
+        },
+        {
+          "role": "free"
+        }
+      ],
       "orientation": {
         "method": "left/right canonicalization to a medoid final pose",
         "mirroredTrainingClips": 3
@@ -761,13 +1034,14 @@
       "ea3c772c9ec13dd5f68afc1272ff2e13702fb89096782df4ed21d606d3f4a7e1"
     ]
   },
-  "referenceKey": "da7848337e8ab4179688a428bc2ec8e8304eb63ae84ba220b1ce41ca51ca33e6",
+  "referenceKey": "927004d9dbaa28fb418193d890599e3c5b18e6d8b24399528ee632dd04b3a926",
   "validation": {
     "protocol": "full recording",
     "evaluated": 15,
     "scorable": 13,
     "completed": 10,
-    "verified": 0,
+    "correct": 5,
+    "verified": 3,
     "unscorable": 2,
     "crossPoseCompletions": 0,
     "crossPoseTrials": 60,

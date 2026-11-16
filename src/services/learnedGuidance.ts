@@ -29,5 +29,4 @@ export const MOVEMENT_SETUP: Record<string, string> = {
   Vrikshasana: 'Stand facing the camera. Balance on either leg.',
   Trikasana: 'Face the camera with your feet wide apart. Bend to either side.',
   Bhujasana: 'Place the camera beside your mat and lie face down, hands near your chest.',
-  Padamasana: 'Sit facing the camera with your hips, knees and ankles in view.',
 };

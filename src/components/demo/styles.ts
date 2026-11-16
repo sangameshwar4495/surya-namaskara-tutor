@@ -1,7 +1,7 @@
 import { StyleSheet } from "react-native";
 
 // Match Practice Mode and the existing primary buttons.
-export const colors = { background: "#F7F5EE", text: "#172923", muted: "#68756F", accent: "rgb(39, 102, 82)", primary: "rgb(91,123,97)", pale: "#DCEBE4", white: "#FFFFFF" };
+export const colors = { background: "#F7F5EE", text: "#172923", muted: "#68756F", accent: "rgb(39, 102, 82)", primary: "rgb(91,123,97)", pale: "#DCEBE4", white: "#FFFFFF", caution: "#B5651D" };
 export const demoStyles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   content: { width: "100%", maxWidth: 640, alignSelf: "center", paddingHorizontal: 20, paddingTop: 20, paddingBottom: 30, gap: 24 },
