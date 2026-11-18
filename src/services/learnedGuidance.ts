@@ -21,12 +21,13 @@ export function referenceFor(library: ReferenceLibrary, model: TemporalModel, na
 }
 export function highlightedJoints(feedback: TemporalResult | null): number[] {
   if (!feedback || feedback.status !== 'adjust') return [];
+  if ('coaching' in feedback) return (feedback as TemporalResult & {coaching:{active:{landmarkIndices:number[]}[]}}).coaching.active.slice(0,2).flatMap(e=>e.landmarkIndices);
   return feedback.jointErrors.filter(e => e.outsideTolerance).map(e => JOINT_LANDMARKS[FEATURES.indexOf(e.joint)]);
 }
 /** One short setup line per pose, shown under the pose name and spoken at the start. */
 export const MOVEMENT_SETUP: Record<string, string> = {
   Tadasana: 'Stand tall facing the camera, arms by your sides.',
-  Vrikshasana: 'Stand facing the camera. Balance on either leg.',
+  Vrikshasana: 'Stand facing the camera. Balance on either leg, with hands together at chest level.',
   Trikasana: 'Face the camera with your feet wide apart. Bend to either side.',
   Bhujasana: 'Place the camera beside your mat and lie face down, hands near your chest.',
 };

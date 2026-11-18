@@ -33,7 +33,7 @@ test('persistent joint errors spanning movement sections remain in the review',(
   assert.equal(noise.verdict,'correct');
 });
 
-test('live corrections require persistence, repeat at a bounded rate and reset after gaps',()=>{
+test('live corrections require persistence and speak each instruction once per attempt',()=>{
   const {LiveFeedback}=require('../src/services/liveFeedback.ts');
   const cue=new LiveFeedback();
   const wrong={status:'adjust',message:'Gently straighten your left knee'};
@@ -41,11 +41,11 @@ test('live corrections require persistence, repeat at a bounded rate and reset a
   assert.equal(cue.update(wrong,250),null);
   assert.equal(cue.update(wrong,500),wrong.message);
   for(let time=750;time<5500;time+=250)assert.equal(cue.update(wrong,time),null);
-  assert.equal(cue.update(wrong,5500),wrong.message);
+  assert.equal(cue.update(wrong,5500),null);
   assert.equal(cue.update({status:'matching',message:'Good'},5750),null);
   assert.equal(cue.update(wrong,11000),null);
   assert.equal(cue.update(wrong,11250),null);
-  assert.equal(cue.update(wrong,11500),wrong.message);
+  assert.equal(cue.update(wrong,11500),null);
   assert.equal(cue.update(wrong,11500),null);
 });
 

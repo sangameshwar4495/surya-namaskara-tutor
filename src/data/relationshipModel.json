@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "modelKey": "927004d9dbaa28fb418193d890599e3c5b18e6d8b24399528ee632dd04b3a926",
+  "featureSchema": "bilateral-shoulder-difference-v1",
+  "poses": {
+    "Tadasana": {
+      "shoulderDifference": 31.587658307173598,
+      "trainingVideos": 6,
+      "variant": "arms-overhead"
+    }
+  },
+  "provenance": {
+    "trainingHashes": [
+      "e5994fd795acde6af96e72205fa2fa63c02ab2d40a2e81a30a43b17824f49add",
+      "378490223af383154c0c26fdef6f86f1a262c8fa6bb812292432ac94740bdffd",
+      "153e1df145c36a012aebbbda7e01be8bdba3faaab2447186be017f1aaef80829",
+      "65da8fa7ccc5f419e38dc9ee94454ece6e803ff648d4872db0298a1d81846733",
+      "ae2a939fc8ac6c94a3f801a98f17a23f77b27c569993eddf7080d084951d7c12",
+      "b0125b73be21f2de8297ca5a28a8d24b9d63351f31a98e4c528444bb4f2d4353"
+    ],
+    "method": "Per-video q99 bilateral shoulder difference plus leave-one-video-out envelope residual; floor 20 degrees, margin floor 5 degrees. Not probability-calibrated."
+  }
+}

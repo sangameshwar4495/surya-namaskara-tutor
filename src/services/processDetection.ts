@@ -8,7 +8,7 @@ function normalize(point: Point | undefined, confidence?: Landmark): Landmark {
   return {
     x: coordinate(point?.x), y: coordinate(point?.y), z: coordinate(point?.z),
     visibility: Math.min(coordinate(point?.visibility ?? confidence?.visibility ?? 0),
-      coordinate(point?.presence ?? point?.visibility ?? confidence?.visibility ?? 0)),
+      coordinate(point?.presence ?? point?.visibility ?? confidence?.visibility ?? 0), confidence?.visibility ?? 1),
   };
 }
 
@@ -24,7 +24,7 @@ export function processDetection(payload: unknown, android: boolean, receivedAt:
   // Preserve the existing Android display orientation; never use it for 3D angles.
   const landmarks = raw.map(point => android ? { ...point, x: 1 - point.y, y: 1 - point.x } : point);
   const world = pose?.worldLandmarks?.[0];
-  const angles = calculatePoseAngles(Array.isArray(world)
-    ? Array.from(world, (point, index) => normalize(point, raw[index])) : []);
-  return { landmarks, angles, receivedAt, ...checkPersonInFrame(landmarks) };
+  const worldLandmarks = Array.isArray(world) ? Array.from(world, (point, index) => normalize(point, raw[index])) : [];
+  const angles = calculatePoseAngles(worldLandmarks);
+  return { landmarks, worldLandmarks, angles, receivedAt, ...checkPersonInFrame(landmarks) };
 }

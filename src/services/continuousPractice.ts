@@ -35,12 +35,14 @@ export interface AttemptSummary {
   rangeOnlyJoints: string[];
   speech: string;
 }
-export interface ContinuousResult extends TemporalResult { sections: MovementSection[]; summary?: AttemptSummary; mirrored?: boolean }
+export interface ContinuousResult extends TemporalResult { sections: MovementSection[]; summary?: AttemptSummary; mirrored?: boolean; movementEngaged?: boolean }
 /**
  * Algorithm switches. All default to on; they exist so `ml/diagnose.cjs` can measure
  * each change's contribution (ablation) on training data.
  */
 export interface PracticeOptions {
+  /** Keep evidence from at least one learned moving joint after robust trimming. */
+  motionRecognition?: boolean;
   /** Score the opposite-side (left/right swapped) performance too, using whichever fits. */
   mirror?: boolean;
   /** While the final pose stays within its own tolerance, keep the final stage selected. */
@@ -151,9 +153,12 @@ export class ContinuousPractice {
   private sections: MovementSection[];
   private finished?: ContinuousResult;
   private options: Required<PracticeOptions>;
+  private pathPoints: {point:Phase;location:number}[] = [];
   constructor(private pose: TemporalPose, options: PracticeOptions = {}) {
     this.options = { mirror: true, holdHysteresis: true, holdGraceMs: PERSISTENT_ERROR_MS, pathTolerance: true, learnedTolerance: false, jointRoles: true, pathCoverage: true,
-      strictVerdict: true, ...options };
+      strictVerdict: true, motionRecognition: true, ...options };
+    for(let a=0;a<pose.phases.length-1;a++)for(let step=0;step<=PATH_STEPS;step++)
+      this.pathPoints.push({point:interpolatePhase(pose.phases[a],pose.phases[a+1],step/PATH_STEPS,[this.cap(a),this.cap(a+1)]),location:a+step/PATH_STEPS});
     this.sections = pose.phases.slice(0,-1).map(() => ({observed:false,matched:false,errors:{}}));
   }
   reset() {
@@ -184,7 +189,14 @@ export class ContinuousPractice {
       if(!s.observable)return Infinity;
       const residuals=s.jointErrors.map(e=>e.degrees/this.pose.phases[i].scale[FEATURES.indexOf(e.joint)]).sort((a,b)=>a-b);
       const use=residuals.slice(0,Math.max(3,Math.ceil(residuals.length*.75)));
-      return use.reduce((sum,v)=>sum+v*v,0)/use.length;
+      // Trimming can discard BOTH shoulders when they are the only moving joints. Retain
+      // evidence from the best-fitting mover so one lagging limb cannot freeze recognition.
+      const movers=this.movingJoints().flatMap(({k})=>{
+        const e=s.jointErrors.find(e=>e.joint===FEATURES[k]);
+        return e?[e.degrees/this.pose.phases[i].scale[k]]:[];
+      });
+      const motion=this.options.motionRecognition && movers.length>0 && movers.length<=residuals.length-use.length?Math.min(...movers)**2:0;
+      return use.reduce((sum,v)=>sum+v*v,0)/use.length+motion;
     });
   }
   private matches(stats: Comparison, index: number) {
@@ -201,14 +213,10 @@ export class ContinuousPractice {
   private judgeMovement(values: Features, index: number): { stats: Comparison; matched: boolean; location: number } {
     const phases=this.pose.phases;
     let best={stats:phaseError(values,phases[index],this.cap(index)),threshold:phases[index].threshold,location:index};
-    if(this.options.pathTolerance) for(let a=0;a<phases.length-1;a++) {
-      const b=a+1, caps:[number,number]=[this.cap(a),this.cap(b)];
-      for(let step=0;step<=PATH_STEPS;step++) {
-        const point=interpolatePhase(phases[a],phases[b],step/PATH_STEPS,caps);
+    if(this.options.pathTolerance) for(const {point,location} of this.pathPoints) {
         // Interpolated tolerances are already bounded per end; do not cap them again.
         const stats=phaseError(values,point,Infinity);
-        if(stats.observable && stats.normalizedError<best.stats.normalizedError)best={stats,threshold:point.threshold,location:a+step/PATH_STEPS};
-      }
+        if(stats.observable && stats.normalizedError<best.stats.normalizedError)best={stats,threshold:point.threshold,location};
     }
     const {stats,threshold,location}=best;
     return {stats,location,matched:stats.observable && stats.jointErrors.every(e=>!e.outsideTolerance) && stats.normalizedError<=threshold};
@@ -359,7 +367,7 @@ export class ContinuousPractice {
     } else this.resetHold();
     const status: TemporalResult['status']=matched||graced?'matching':'adjust';
     const current: ContinuousResult={...base,...stats,phase:candidate,sections:this.snapshot(),heldMs:Math.min(this.held,FINAL_HOLD_MS),
-      mirrored:chosen.mirrored,status,
+      mirrored:chosen.mirrored,movementEngaged:this.engaged,status,
       message:status==='matching'?(final?'Hold steady and breathe.':'Good — keep going.')
         : `${correctionFor(errors[0]??stats.jointErrors[0])}${final?', then hold.':'.'}`};
     if(this.held>=FINAL_HOLD_MS) {

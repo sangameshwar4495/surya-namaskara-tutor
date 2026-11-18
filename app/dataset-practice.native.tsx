@@ -9,7 +9,7 @@ import { useCameraActive } from '../src/hooks/useCameraActive';
 import { usePoseDetection } from '../src/hooks/usePoseDetection';
 import PoseCanvas from '../src/components/PoseCanvas';
 import { FEATURES, FINAL_HOLD_MS, validateModel, type TemporalModel } from '../src/services/temporalPose';
-import { ContinuousPractice, MOVEMENT_SPEECH, type ContinuousResult } from '../src/services/continuousPractice';
+import { MOVEMENT_SPEECH, type ContinuousResult } from '../src/services/continuousPractice';
 import { LiveFeedback } from '../src/services/liveFeedback';
 import { highlightedJoints, MOVEMENT_SETUP } from '../src/services/learnedGuidance';
 import { useCoachSpeech } from '../src/hooks/useCoachSpeech';
@@ -17,6 +17,8 @@ import MovementDemo from '../src/components/MovementDemo';
 import { DATASET_DEMOS, DEMO_MODEL_KEY } from '../src/data/datasetDemos';
 import { findMovementPose } from '../src/data/movementPoses';
 import artifact from '../src/data/temporalModel.json';
+import relationships from '../src/data/relationshipModel.json';
+import { MovementCoach, type CoachedResult } from '../src/services/movementCoach';
 
 // JSON imports type string fields loosely (e.g. joint roles); the model is validated at runtime below.
 const model = artifact as unknown as TemporalModel;
@@ -46,15 +48,19 @@ export default function DatasetPractice() {
   const [cameraError, setCameraError] = useState('');
   const [cameraKey, setCameraKey] = useState(0);
   const [cameraReady, setCameraReady] = useState(false);
-  const [feedback, setFeedback] = useState<ContinuousResult | null>(null);
+  const [feedback, setFeedback] = useState<CoachedResult | null>(null);
+  const [debug, setDebug] = useState(false);
   const [stage, setStage] = useState({ width: 0, height: 0 });
   const [now, setNow] = useState(performance.now());
   const readyAt = useRef(Infinity);
   const holdAnnounced = useRef(false);
+  const lastProcessed = useRef(-Infinity);
   const liveFeedback = useRef(new LiveFeedback());
   const name: string = selected?.name ?? '';
   const pose = model.poses.find(p => p.name === name);
-  const tracker = useMemo(() => pose ? new ContinuousPractice(pose) : null, [pose, attempt]);
+  const tracker = useMemo(() => pose ? new MovementCoach(pose,
+    relationships.version === 1 && relationships.featureSchema === 'bilateral-shoulder-difference-v1' && relationships.modelKey === model.referenceKey
+      ? (relationships.poses as Record<string, {shoulderDifference:number;trainingVideos:number;variant:string}>)[name] : undefined) : null, [pose, attempt, name]);
   const demo = model.referenceKey === DEMO_MODEL_KEY ? DATASET_DEMOS[name] : undefined;
   // The preview runs before Start so people can frame themselves; scoring starts on Start.
   const previewOn = focused && hasPermission && !!device && !cameraError;
@@ -66,6 +72,7 @@ export default function DatasetPractice() {
     let cancelled = false;
     readyAt.current = Infinity;
     holdAnnounced.current = false;
+    lastProcessed.current = -Infinity;
     liveFeedback.current = new LiveFeedback();
     tracker?.reset(); setFeedback(null); setCompleted(false);
     const beginCountdown = () => {
@@ -87,7 +94,8 @@ export default function DatasetPractice() {
   const summarySpeech = (result: ContinuousResult) => `${result.summary?.speech ?? ''} That completes your practice.`;
 
   useEffect(() => {
-    if (!active || !tracker || completed || poseResult.receivedAt <= readyAt.current || performance.now() - poseResult.receivedAt > 500) return;
+    if (!active || !tracker || completed || poseResult.receivedAt <= readyAt.current || poseResult.receivedAt <= lastProcessed.current || performance.now() - poseResult.receivedAt > 500) return;
+    lastProcessed.current = poseResult.receivedAt;
     const angles = {...poseResult.angles};
     FEATURES.forEach((key,k) => {
       if (!JOINTS[k].every(i => {
@@ -95,8 +103,8 @@ export default function DatasetPractice() {
         return p && p.visibility >= .6 && p.x > .02 && p.x < .98 && p.y > .02 && p.y < .98;
       })) angles[key] = null;
     });
-    const next = tracker.update(angles, poseResult.receivedAt);
-    const correction = liveFeedback.current.update(next, poseResult.receivedAt);
+    const next = tracker.update(angles, poseResult.receivedAt, true, poseResult.worldLandmarks);
+    const correction = speech.speaking ? null : liveFeedback.current.update(next, poseResult.receivedAt);
     setFeedback(next);
     if (next.status === 'complete') {
       setCompleted(true);
@@ -104,11 +112,11 @@ export default function DatasetPractice() {
       void speech.speak(summarySpeech(next));
     } else if (correction) {
       void speech.speak(correction);
-    } else if (next.status === 'matching' && next.heldMs >= 250 && !holdAnnounced.current) {
+    } else if (!speech.speaking && next.status === 'matching' && next.heldMs >= 250 && !holdAnnounced.current) {
       holdAnnounced.current = true;
       void speech.speak('Hold steady and breathe.');
     }
-  }, [active, tracker, poseResult, completed, speech.speak]);
+  }, [active, tracker, poseResult, completed, speech.speak, speech.speaking]);
 
   const restart = useCallback((start: boolean) => {
     speech.stop(); setFeedback(null); setCompleted(false);
@@ -221,6 +229,14 @@ export default function DatasetPractice() {
         </View>}
       </>}
       {!!speech.error && <Text style={styles.note}>{speech.error}</Text>}
+      {!completed && feedback && <Text style={styles.note}>{name} · Movement {feedback.phase + 1}/{feedback.total}</Text>}
+      {!completed && feedback?.coaching.active[1] && <Text style={styles.note}>{feedback.coaching.active[1].correction}</Text>}
+      {__DEV__ && <TouchableOpacity onPress={() => setDebug(v => !v)}><Text style={styles.note}>{debug ? 'Hide diagnostics' : 'Show diagnostics'}</Text></TouchableOpacity>}
+      {__DEV__ && debug && <ScrollView style={{maxHeight:150}}><Text selectable style={styles.note}>{JSON.stringify({
+        pose:name,side:feedback?.mirrored?'opposite':'reference',phase:feedback?.phase,heldMs:feedback?.heldMs,
+        angles:poseResult.angles,visibility:poseResult.landmarks.map(p=>p.visibility),deviation:feedback?.normalizedError,
+        coaching:feedback?.coaching,speaking:speech.speaking,
+      },null,2)}</Text></ScrollView>}
     </View>
   </View>;
 }

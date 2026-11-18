@@ -6,6 +6,7 @@ export class LiveFeedback {
   private since = 0;
   private lastSample = -Infinity;
   private lastSpoken = -Infinity;
+  private announced = new Set<string>();
 
   update(result: TemporalResult, now: number): string | null {
     if (!Number.isFinite(now) || now <= this.lastSample) return null;
@@ -16,8 +17,9 @@ export class LiveFeedback {
       this.message = message;
       this.since = now;
     }
-    if (!message || now - this.since < 500 || now - this.lastSpoken < 5000) return null;
+    if (!message || this.announced.has(message) || now - this.since < 500 || now - this.lastSpoken < 5000) return null;
     this.lastSpoken = now;
+    this.announced.add(message);
     return message;
   }
 }
