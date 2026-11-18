@@ -1,133 +1,219 @@
-# Local yoga coaching implementation — 18 November 2026
+# Real-Time Yoga Pose Correction
 
-This work improves the existing Expo/React Native, MediaPipe and DTW application locally. It does **not** establish production reliability or complete all proposed correction categories. No remote Git operations, branch changes, commits, dataset deletion, or label changes were performed. The starting worktree was clean.
+A mobile yoga practice application built with **React Native, Expo, and MediaPipe**. Choose a pose, follow the demonstration, and receive movement guidance from your camera's body-landmark measurements.
 
-## Pipeline audit and root causes
+The application compares your movement with learned reference trajectories using **Dynamic Time Warping (DTW)**. The pose is selected before practice; the system does not need to classify which yoga pose you are performing.
 
-Inspected the training pipeline, extraction/indexing, reviewed boundaries, diagnostics and historical results; runtime angle extraction, temporal tracking, continuous practice, guidance, feedback, detection/speech hooks, practice screen, overlay, model and automated tests.
+## Download the Android app
 
-* Training reads reviewed entry/hold windows, samples 24 entry positions, aligns angle sequences with DTW, and combines aligned demonstrations with medians and MAD spreads. It simplifies the trajectory into meaningful stages and calibrates on whole held-out training videos. Left/right variants are expressed in a canonical orientation before fitting.
-* The eight features are 3D world-coordinate knee, elbow, shoulder and hip angles. Offline extraction uses image visibility/presence >= .6; live angle calculation initially accepts .3 and the practice screen masks joints at .6 plus frame-edge checks. These gates are not completely identical. No new angle-cache equivalence is claimed.
-* Phase recognition trims the worst quarter of residuals; correctness separately checks all available joints. Trimming could discard **every moving joint** where only one or two joints move. The fix retains the best available moving-joint evidence only in that case. One bad limb can still be ignored for recognition, but not for correction.
-* Moving-joint roles allow a broad start-to-end band. That handles speed differences but misses bilateral timing mistakes. Widening every tolerance would worsen this; the old DTW tolerances are preserved.
-* Generic angle-to-sentence mapping cannot establish torso tilt, foot placement, chest elevation or forward-vs-sideways bending. The new classifier suppresses these unsupported directional claims rather than pretending a hip angle identifies them.
-* Raw per-frame corrections were displayed immediately and speech repeated every five seconds. Corrections now require elapsed-time persistence; speech announces each distinct message at most once per attempt.
-* A final posture still does not verify earlier movement. The existing coverage, reversal and tracking-loss records remain in use. New persistent entry errors remain in the summary after correction; final-alignment corrections are not mislabeled as entry mistakes.
+Try the app on your Android device without setting up the development environment:
 
-## Dataset audit
+**[Download the Android APK from Expo](https://expo.dev/accounts/sangamesh18/projects/yoga-pose-correction/builds/6fb4a783-f6b3-4a89-87f5-9749ac47647d)**
 
-All source videos and angle caches are present. Training inclusion is unchanged:
+1. Open the build page above on your Android device and download the APK.
+2. Open the downloaded file. If Android prompts you, allow installation from the browser or file manager you used.
+3. Install and launch the app, grant camera permission, and select a pose to begin practice.
 
-| Pose | Available | Previously included, retained | Excluded, retained |
-|---|---:|---:|---:|
-| Tadasana | 12 | 6 | 6 |
-| Vrikshasana | 11 | 4 | 7 |
-| Trikasana | 10 | 5 | 5 |
-| Bhujasana | 12 | 6 | 6 |
-| Total | 45 | 21 | 24 |
+The APK is for Android devices. To run the project from source or contribute changes, follow the setup instructions below.
 
-Generated **24 timestamped contact sheets and 24 per-recording metadata/visibility reports**, in `ml/reports/excluded-review/`. Every report retains unknown correctness, boundaries, repetition count and variant as null. No excluded recording was promoted: **0 newly verified/included**. These are review aids, not 24 completed correctness reviews. A spot inspection of Vrikshasana video 10 shows an already-held stance at the beginning and a later opposite-side performance; a whole-video label would obscure its segmentation requirements. Full motion correctness and precise boundaries remain unreviewed.
+## Supported poses
 
-The permitted contact-sheet fallback is used because sparse frames cannot reliably validate continuous movement, occluded joints or exact boundaries. Original reviewed annotations and test recordings remain untouched. Performer independence is declared by the existing dataset policy, not verified from newly collected identities. No real incorrect-performance recordings were identified in the existing dataset documentation.
+| Pose | Practice reference |
+| --- | --- |
+| Tadasana | Standing movement with arms raised overhead |
+| Vrikshasana | Tree pose with hands together at chest level; either supporting leg |
+| Trikasana | Side-bending movement; either side |
+| Bhujasana | Cobra movement, viewed from beside the mat |
 
-## Training and features
+Dataset names are retained in the application. Other variations, such as Vrikshasana with overhead arms, may not be supported by the bundled references.
 
-The original DTW artifact, landmark reference key and bundled demonstrations are unchanged. A new **supplemental** `relationshipModel.json` is fitted from the six already-included Tadasana training videos, with no test input. It records a bilateral shoulder-angle difference envelope: per-video q99 plus a leave-one-video-out upper-envelope residual, with explicit engineering floors. The resulting limit is **31.587658 degrees**. This is a conservative small-sample envelope, not a probability-calibrated threshold.
+## Features
 
-Its schema is `bilateral-shoulder-difference-v1`, version 1, bound to the DTW model's reference key and training hashes. The screen disables this relationship if schema/version/key do not match. Existing references are not silently reinterpreted as a larger feature vector.
+- Live camera preview with a body-landmark overlay.
+- Bundled demonstration videos for guided practice.
+- Continuous movement tracking and a separate final-hold check.
+- Pose-specific feedback for supported, observable arm, elbow and knee deviations.
+- Persistent-error filtering to reduce reactions to brief tracking noise.
+- Anatomical body-part highlighting and prioritized written corrections.
+- Spoken guidance with repeated-message suppression.
+- Attempt summaries that distinguish final-pose completion from observed entry movement.
+- Development diagnostics for phase, joint measurements, visibility and feedback decisions.
 
-The live detector now retains world landmarks. Arm-lag advice requires torso-normalized wrist elevation to corroborate shoulder asymmetry when world landmarks are supplied. This measurement is translation, scale and mirror invariant and visibility gated. Legacy angle caches lack world landmarks; offline arm-lag evaluation is explicitly a weaker angle-only proxy. A geometry-cache regeneration and calibration run remains outstanding.
+## Technology stack
 
-## Tracking, classifier and controller
+| Area | Technologies |
+| --- | --- |
+| Mobile application | React Native 0.81, React 19, TypeScript |
+| Application framework | Expo SDK 54, Expo Router |
+| Camera | React Native Vision Camera |
+| Body tracking | MediaPipe Pose Landmarker Lite, `react-native-mediapipe-posedetection` |
+| Landmark overlay | React Native SVG |
+| Demonstrations and speech | Expo Video, Expo Speech |
+| Movement modeling | DTW, robust reference statistics, geometric rules |
+| Offline dataset processing | Python, MediaPipe, OpenCV, NumPy |
+| Training and evaluation | Node.js scripts and Python utilities |
+| Automated checks | Node.js test runner, TypeScript compiler |
 
-`MovementCoach` wraps, rather than replaces, `ContinuousPractice`. The tracker still owns phase recognition, coverage, reversal and final hold. It precomputes interpolated reference points once per instance instead of rebuilding them for every camera frame. The new layer owns evidence, persistence, correction selection and entry-error history.
+## How it works
 
-`ClassifiedError` carries an identity, pose/phase, physical error type, anatomical joints, highlight landmarks, severity, evidence completeness, measured evidence, persistence and state. Confidence means completeness of rule evidence, **not validated accuracy**. Independent moving-joint progress comes from the learned start/final angles and is exposed in diagnostics.
+```text
+Select a pose
+     ↓
+Camera → MediaPipe body landmarks → Joint angles and geometric measurements
+     ↓
+Compare with the selected pose's learned trajectory
+     ↓
+Estimate movement phase and assess observable deviations
+     ↓
+Filter persistent errors → Prioritize guidance → Highlight and speak
+     ↓
+Verify final hold and summarize the attempt
+```
 
-| Pose | Implemented supported rules |
-|---|---|
-| Tadasana | Left/right arm lag with training-derived bilateral limit and live wrist corroboration; observable knee bending, elbow extension and final upper-arm alignment |
-| Vrikshasana | Supporting knee bending, lifting-knee progression, elbow extension and final arm alignment; anatomical sides preserved after reference mirroring |
-| Trikasana | Observable knee bending, elbow extension and upper-arm alignment relative to the learned reference |
-| Bhujasana | Observable knee bending, phase-relative elbow extension and upper-arm alignment |
+Training uses correct demonstrations, DTW alignment, robust statistics and video-level calibration. Runtime tracking allows different movement speeds without requiring a hold at every intermediate position. Holding the final pose does not automatically prove that the full entry movement was observed or correct.
 
-Rules operate only on measured deviations, not unconditional textbook posture requirements. Errors involving hips do not generate speculative torso instructions. Shoulder-angle instructions describe movement relative to the torso unless wrist evidence supports “raise”. The overhead-arm Vrikshasana variant is explicitly reported unsupported when the fitted reference calls for chest-level hands; it is not averaged into that reference. No new variant was trained without verified examples.
+## Prerequisites
 
-Persistence defaults to 500 ms with a 500 ms maximum observation gap. Stale timestamps do not earn time. Occluded joints suspend errors without announcing resolution. Correcting a visible error clears it immediately, with occasional written reinforcement. History is bounded by the finite rule identities. The spoken controller retains its existing five-second spacing and now deduplicates instructions for the entire attempt. No competing speech hook was created.
+For the Android application, install:
 
-## Live UI
+- **Node.js 22 LTS** and npm. The installed React Native version requires Node.js **20.19.4 or newer**.
+- **Git**.
+- **JDK 17**.
+- **Android Studio**, Android SDK, platform tools and the SDK/build tools requested by Expo's Android build.
+- A physical Android device with USB debugging enabled, or an Android emulator for basic UI checks.
 
-The original camera, demonstration, final-hold bar and review remain. The screen now uses the coaching controller, shows movement phase/progress, one primary and optional secondary correction, and highlights the complete affected arm/leg chain through the existing overlay. Diagnostic visibility is guarded by `__DEV__` and includes pose, side, phase, hold, angles, visibility, reference deviation, per-joint progress, candidate/active/resolved errors, suppression reasons and speech state.
+A physical device is recommended for camera-based practice. Ensure `JAVA_HOME` and your Android SDK environment variables are configured and `adb` is available on your PATH. See the [Expo local development setup guide](https://docs.expo.dev/get-started/set-up-your-environment/) for platform-specific instructions.
 
-Speech requests wait while another utterance is active. A processed-frame timestamp guard prevents speech state updates from evaluating the same frame twice. Existing pause/resume behavior is retained: resuming starts a fresh attempt. Anatomical joint indices never swap merely because the preview is mirrored. Physical Android camera/overlay correspondence still requires device validation.
+**Use a native Android build for pose correction.** The camera and MediaPipe integrations are native modules and are not available in ordinary Expo Go. Web preview is not a substitute for the native camera pipeline. iOS scripts are present, but iOS camera behavior has not been verified for this implementation.
 
-## Actual validation
+## Fork and install
 
-Baseline: **93/93 tests passed**, `npx tsc --noEmit` passed. Updated: **105/105 tests passed**, TypeScript passed. New tests cover both lagging arms, canonical mirroring, correct progress, missing reference/visibility, 8/15/30 fps persistence, full and partial tracking loss, normalized geometry invariance, contradictory geometry, rules across all four poses, lifting/supporting knee direction, unsupported tree variant, and an integrated detect/highlight/resolve/summary case. Existing tests cover reversal, skipped movement, coverage, speed-independent traversal and final-hold loss.
+1. Open [surya-namaskara-tutor on GitHub](https://github.com/sangameshwar4495/surya-namaskara-tutor).
+2. Click **Fork** to create a copy in your own account. This implementation originates from the **`diffposes2`** branch; include that branch when creating your fork.
+3. Clone your fork. Replace `YOUR_USERNAME` with your GitHub username:
 
-Training-only synthetic benchmark (`node ml/diagnose.cjs --mistakes --rows`) is unchanged for the default tracker:
+   ```bash
+   git clone --branch diffposes2 https://github.com/YOUR_USERNAME/surya-namaskara-tutor.git
+   cd surya-namaskara-tutor
+   npm ci
+   ```
 
-| Metric | Baseline | Updated |
-|---|---:|---:|
-| Completed correct demonstrations | 18/21 | 18/21 |
-| Completed movements judged correct | 4/18 | 4/18 |
-| Completed demonstrations with summary correction | 3/18 | 3/18 |
-| Injected knee bend caught | 17/21 | 17/21 |
-| Injected elbow bend caught | 6/21 | 6/21 |
-| Injected hip bend caught | 17/21 | 17/21 |
-| Injected reversal caught | 8/21 | 8/21 |
+   If your fork stores this implementation on a differently named branch, use that branch instead.
 
-Full-recording coaching comparison (nested training-video holdout; fixed original test references):
+The repository includes the MediaPipe model, learned reference artifacts and demonstration clips. **You do not need the original training dataset or Python to run the application with the bundled models.**
 
-| Metric | Development baseline → updated | Test baseline → updated |
-|---|---:|---:|
-| Final completion | 18/21 → 18/21 | 9/12 → 9/12 |
-| Movements judged correct | 4 → 4 | 3 → 2 |
-| Completed recordings with summary corrections | 3 → 3 | 3 → 4 |
-| Recordings with live spoken corrections | 6 → 4 | 7 → 2 |
-| Phase changes, whole recordings | 297 → 295 | 299 → 287 |
+## Run on Android
 
-**This is mixed evidence, not a blanket accuracy improvement.** Fewer live corrections also result from suppressing ambiguous advice. One additional test Tadasana asymmetry correction worsens its angle-only summary result; no thresholds were adjusted to remove that test failure. The live wrist check cannot be evaluated from these old caches. Phase changes are not a labeled phase-instability rate. Incorrect-side accuracy, real error recall and actual speech latency remain unknown. Synthetic activation latency is 500 ms plus at most a sample interval; speech additionally waits for controller stability/cooldown and the current utterance. The comparison uses the new deduplicating speech controller for both tracker versions.
+1. Connect your device, enable USB debugging, and accept the debugging authorization prompt. Confirm that it is visible:
 
-Reports are local in `ml/reports/baseline-tests.txt`, `baseline-types.txt`, `baseline-mistakes.txt`, `updated-tests.txt`, `updated-types.txt`, `updated-mistakes.txt`, and `coaching-evaluation.json`. Reports/caches are git-ignored by existing policy. No Android-device test or native build was performed in this work.
+   ```bash
+   adb devices
+   ```
 
-## Remaining work and limitations
+2. Build and install the native application:
 
-* Expert continuous-video review is required before adding any of the 24 excluded recordings or splitting repetitions. No expanded-data DTW retraining is claimed.
-* Torso tilt/direction, chest elevation, forward lean, lifted-foot placement, and shoulder positioning beyond upper-arm angles are **not activated**: they need viewpoint-aware geometric references and validation. Weight distribution, exact ground contact and internal stress are not inferred.
-* Incorrect movement recordings and fresh held-out performers are needed to measure missed errors, wrong-side errors and false feedback. Existing test videos were already inspected during earlier project development.
-* Separate overhead tree and other movement variants need verified data, their own trajectories and UI selection. Currently only the existing references and their opposite-side versions are supported.
-* Setup/final-alignment false corrections still occur. Existing generic summary corrections are retained for compatibility; the new live layer does not make every historical summary sentence biomechanically specific.
-* The live/offline visibility and geometry paths need fresh paired recordings. This implementation is an incremental improvement, not fulfillment of every candidate detector in the original brief.
+   ```bash
+   npm run android
+   ```
 
-## Files changed or added
+   Expo generates the Android project when needed, builds the application and starts the development server. The first build may take several minutes while Gradle downloads dependencies.
 
-* `app/dataset-practice.native.tsx` — controller, evidence input, diagnostics, progress, secondary feedback, speech/frame guards.
-* `src/services/continuousPractice.ts` — moving-joint recognition safeguard, cached interpolated reference points, engagement metadata.
-* `src/services/errorClassifier.ts` — typed pose-specific evidence, normalized wrist measurement, elapsed-time persistence.
-* `src/services/movementCoach.ts` — integrated tracker/classifier/controller and entry-error summary preservation.
-* `src/services/learnedGuidance.ts` — persistent anatomical chain highlighting and explicit chest-level tree setup.
-* `src/services/liveFeedback.ts` — once-per-attempt speech deduplication.
-* `src/services/processDetection.ts`, `src/types/pose.ts` — retain world landmarks and combine world/image confidence.
-* `src/data/relationshipModel.json` — locally trained, versioned relationship artifact.
-* `ml/audit-excluded.py` — reproducible per-excluded-video review aids, no annotation mutations.
-* `ml/train-relationships.cjs` — training-only supplemental calibration.
-* `ml/evaluate-coaching.cjs` — whole-recording baseline/updated comparison with explicit limitations.
-* `tests/coaching.test.cjs`, `tests/continuous.test.cjs` — new behavioral tests and updated non-repeating speech contract.
-* `readme.md` — this audit, implementation record, evidence and remaining work.
+3. For later JavaScript-only development sessions, start the development server and open the installed application:
 
-## Run locally
+   ```bash
+   npm start
+   ```
 
-Dependencies are already installed. From this project directory:
+   Rebuild with `npm run android` after changing native dependencies or native configuration.
+
+4. Grant camera permission, open **Practice yoga poses**, select a pose, and start your movement after the setup instructions and countdown.
+
+For standing poses, place the camera so your full body remains visible. For Bhujasana, position it beside the mat. Use even lighting and enough space for the movement. Development builds offer **Show diagnostics** on the practice screen.
+
+Local Android builds do not require an EAS cloud build. If you later configure EAS for your fork, link it to your own Expo project instead of using the original project's `extra.eas.projectId` in `app.json`.
+
+## Development commands
+
+| Command | Purpose |
+| --- | --- |
+| `npm start` | Start the Expo development server |
+| `npm run android` | Build and run the native Android app |
+| `npm test` | Run automated behavioral and regression tests |
+| `npx tsc --noEmit` | Check TypeScript types |
+| `npx expo start --clear` | Restart Metro with a cleared cache |
+
+## Project structure
+
+```text
+app/                      Expo Router screens and navigation
+src/
+  components/             Camera overlays and demonstration components
+  hooks/                  Pose detection, speech and camera lifecycle
+  services/               Tracking, measurements, classification and feedback
+  data/                   Learned references, pose metadata and demo mappings
+  types/                  Shared TypeScript types
+assets/
+  models/                 MediaPipe Pose Landmarker model
+  demos/                  Bundled demonstration videos
+ml/                       Dataset review, training and evaluation utilities
+tests/                    Automated tests
+```
+
+Generated native projects, local datasets, feature caches and evaluation reports are excluded from Git by the existing `.gitignore`.
+
+## Optional: dataset processing and training
+
+Python is needed only when working on the offline ML pipeline. Use **Python 3.11** with a virtual environment and the pinned dependencies:
+
+**Windows PowerShell**
 
 ```powershell
-npm test
-npx tsc --noEmit
+py -3.11 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r ml/requirements.txt
+```
+
+**macOS / Linux**
+
+```bash
+python3.11 -m venv .venv
+.venv/bin/python -m pip install -r ml/requirements.txt
+```
+
+Original recordings are not included in a Git clone. Dataset utilities expect recordings under `dataset/train/<Pose>/` and `dataset/test/<Pose>/`; training and evaluation scripts also require the corresponding local manifest and extracted caches.
+
+Read [the ML documentation](ml/README.md), [evaluation notes](ml/RESULTS.md), and the [implementation report](IMPLEMENTATION_REPORT.md) before regenerating artifacts. Some legacy bulk scripts still cover an additional pose; the current coaching work focuses on the four listed above. Review correctness, movement boundaries and variants before including recordings, keep test recordings separate, and preserve source videos.
+
+With the required reviewed data and caches available:
+
+```bash
 node ml/train-relationships.cjs
 node ml/diagnose.cjs --mistakes --rows
 node ml/evaluate-coaching.cjs
-.\.venv\Scripts\python.exe ml/audit-excluded.py
-npm start
 ```
 
-Use the existing Android development build (native MediaPipe/Vision Camera modules require a development build, not ordinary Expo Go). If a new build is required and Android tooling/device are available, run `npm run android`. Select Practice yoga poses, select one of the supported poses, position the full body, and start. Test both anatomical sides, brief occlusion, slow/fast entries, arm lag and correction. Toggle Show diagnostics in a development build. Do not interpret a final hold as verification of the complete entry; read the movement summary.
+These commands respectively fit the supplemental arm relationship, run the synthetic-mistake benchmark, and compare baseline and updated coaching. They are not required for normal app setup.
+
+## Troubleshooting
+
+| Problem | What to check |
+| --- | --- |
+| Native module missing in Expo Go | Install the native build using `npm run android` |
+| Device not listed | Check the USB cable, debugging authorization and `adb devices` |
+| Android build cannot find Java or the SDK | Check JDK 17, `JAVA_HOME`, Android Studio SDK installation and SDK environment variables |
+| App cannot connect to Metro | Keep the device and computer on an accessible network; for USB development, try `adb reverse tcp:8081 tcp:8081` |
+| Camera permission denied | Enable camera permission in Android application settings |
+| Tracking is intermittent | Improve lighting and keep the relevant arm/leg landmarks fully visible |
+| Changes are not appearing | Restart with `npx expo start --clear`; rebuild after native changes |
+| Training scripts report missing files | Obtain the required local dataset, reviewed manifest and caches; a Git clone excludes them |
+
+## Validation and current limits
+
+The documented local implementation passes **105 automated tests** and TypeScript checking. Tests include persistence, tracking loss, anatomical side handling, supported corrections, and final-hold behavior.
+
+Real-world mistake-detection accuracy remains unvalidated. Current results show fewer live corrections on some correct demonstrations, but not a uniform improvement across all evaluation measures. Camera viewpoint, occlusion and unsupported movement variants can affect assessment. Additional torso and foot-placement corrections require calibrated geometric references. Android-device behavior still requires direct testing of this revision.
+
+See the [implementation report](IMPLEMENTATION_REPORT.md) for exact baseline comparisons, dataset inclusion counts and remaining work.
+
+## Contributing
+
+Fork the repository, make a focused change on your own branch, and run `npm test` and `npx tsc --noEmit`. Include reproduction steps and validation results when proposing a change. For camera or tracking changes, describe the device, camera orientation and pose variant used. Keep private recordings, generated caches and local reports out of commits.
